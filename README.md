@@ -6,4 +6,6 @@ A fuzzy file system indexer and search engine, named after my favourite study sp
 
 using g++:
 ```sh
-git clone --recurse-submodules
+git clone --recurse-submodules https://github.com/yourname/yourrepo
+make
+```

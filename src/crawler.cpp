@@ -21,7 +21,7 @@ void crawl(string rootDir, bool debug=true) {
 
     for (const auto& entry : fs::directory_iterator(root) ) {
         string entryName = entry.path().string();
-        crawl_recursive(entryName, debug);
+        crawl(entryName, debug);
     }
 
 }

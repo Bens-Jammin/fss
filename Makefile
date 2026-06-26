@@ -2,8 +2,7 @@
 TARGET = program.exe
 
 CXX = g++
-CXXFLAGS = -O2 -Ithird_party/BTree
-
+CXXFLAGS = -std=c++20 -O2 -Ithird_party/BTree/include
 
 # Compile everything in src/ at once
 all:
