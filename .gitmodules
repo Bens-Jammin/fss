@@ -1,0 +1,3 @@
+[submodule "third_party/BTree"]
+	path = third_party/BTree
+	url = https://github.com/frozenca/BTree
