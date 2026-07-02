@@ -1,13 +1,29 @@
 # Name of your final program
-TARGET = program.exe
+TARGET = fss.exe
 
 CXX = g++
-CXXFLAGS = -std=c++20 -O2 -Ithird_party/BTree/include
+CXXFLAGS = -std=c++20 -O2
+LDLIBS = -lsqlite3
+
+ifeq ($(OS),Windows_NT)
+    RUN_CMD = .\$(TARGET)
+else
+    RUN_CMD = ./$(TARGET)
+endif
+
 
 # Compile everything in src/ at once
-all:
-	$(CXX) $(CXXFLAGS) src/*.cpp -o $(TARGET)
+all: build run
 
-# Delete the program to start fresh
+build:
+	$(CXX) $(CXXFLAGS) src/*.cpp -o $(TARGET) $(LDLIBS)
+
 clean:
+ifeq ($(OS),Windows_NT)
 	del $(TARGET)
+else
+	rm -f $(TARGET)
+endif
+
+run: build
+	$(RUN_CMD)

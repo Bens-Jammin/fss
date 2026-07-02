@@ -1,0 +1,252 @@
+#include <sqlite3.h>
+#include <iostream>
+#include <string>
+#include "fss.hpp"
+
+bool DBExists() { 
+    std::filesystem::path dbPath = SQLITE_DATABASE_PATH;
+    return std::filesystem::exists(dbPath); 
+}
+
+static int printCallback(void* /*unused*/, int argc, char** argv, char** colNames) {
+    for (int i = 0; i < argc; i++) {
+        std::cout << colNames[i] << " = " << (argv[i] ? argv[i] : "NULL") << "  ";
+    }
+    std::cout << "\n";
+    return 0;
+}
+
+int execSQLWithSTDOUT(sqlite3* db, const char* command) {
+    char* errorMsg = nullptr;
+    int rc = sqlite3_exec(db, command, printCallback, nullptr, &errorMsg);
+    if (rc != SQLITE_OK) {
+        std::cerr << "SQLITE error: " << errorMsg << "\n";
+        sqlite3_free(errorMsg);
+    }
+    return rc;
+}
+
+int execSQL(sqlite3* db, const char* command) {
+    char* errorMsg = nullptr;
+    int rc = sqlite3_exec(db, command, nullptr, nullptr, &errorMsg);
+    if (rc != SQLITE_OK) {
+        std::cerr << "SQLITE error: " << errorMsg << "\n";
+        sqlite3_free(errorMsg);
+    }
+    return rc;
+}
+
+sqlite3* openDB() { 
+    sqlite3* db;
+    int returncode = sqlite3_open(SQLITE_DATABASE_PATH, &db);
+
+    if (returncode != SQLITE_OK) {
+        std::cerr << "Can't open database: " << sqlite3_errmsg(db) << "\n";
+        sqlite3_close(db);
+        return nullptr;
+    }
+    return db;
+}
+
+
+
+
+void initDB() {
+
+    sqlite3* db = openDB();
+    if (db == nullptr) {
+        std::cerr << "Failed to open database file.\n";
+        return;
+    }
+
+    const char* create_index_table = 
+        "CREATE TABLE IF NOT EXISTS files ("
+        "   id         INTEGER PRIMARY KEY,"           // primary key
+        "   path       TEXT NOT NULL UNIQUE,"          // full path
+        "   filename   TEXT NOT NULL,"                 // for name only searches
+        "   extension  TEXT,"                          // searches for file extensions
+        "   parent_id  INTEGER REFERENCES files(id),"  // self-referencing tree for partial path searches
+        "   is_dir     INTEGER NOT NULL DEFAULT 0,"
+        "   mtime      INTEGER NOT NULL"                // unix timestamp for change detection
+        ")";
+
+        
+    const char* create_indexes =
+        "CREATE INDEX IF NOT EXISTS idx_files_filename ON files(filename); "
+        "CREATE INDEX IF NOT EXISTS idx_files_parent ON files(parent_id); "
+        "CREATE INDEX IF NOT EXISTS idx_files_extension ON files(extension);";
+
+    int rc = execSQL(db, create_index_table);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Could not initialize database." << "\n";
+        sqlite3_close(db);
+        return;
+    } else { std::cout << "successfully created table.\n"; }
+    
+    rc = execSQL(db, create_indexes);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Could not initialize database." << "\n";
+        sqlite3_close(db);
+        return;
+    } else { std::cout << "successfully indexed table.\n"; }
+
+    sqlite3_close(db);
+}
+
+
+void insertFileEntries(const std::vector<FileEntry>& files) {
+    const char* insert_sql =
+        "INSERT INTO files (id, path, filename, extension, parent_id, is_dir, mtime) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?);";
+
+    
+    sqlite3* db = openDB();
+    if (db == nullptr) {
+        std::cerr << "Unable to open DB file.\n";
+        return;
+    }
+    
+    sqlite3_stmt* stmt;
+    sqlite3_prepare_v2(db, insert_sql, -1, &stmt, nullptr);
+
+    execSQL(db, "BEGIN TRANSACTION;");
+
+    for (const auto& f : files) {
+        sqlite3_bind_int(stmt, 1, f.id);
+        sqlite3_bind_text(stmt, 2, f.path.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, f.filename.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 4, f.extension.c_str(), -1, SQLITE_TRANSIENT);
+
+        if (f.parentID == -1)  // root has no parent
+            sqlite3_bind_null(stmt, 5);
+        else
+            sqlite3_bind_int(stmt, 5, f.parentID);
+    
+        sqlite3_bind_int(stmt, 6, f.isDir ? 1 : 0);
+        sqlite3_bind_int64(stmt, 7, static_cast<sqlite3_int64>(f.mtime));
+
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            std::cerr << "Insert failed: " << sqlite3_errmsg(db) << "\n";
+        }
+        sqlite3_reset(stmt);
+    }
+
+    execSQL(db, "COMMIT;");
+    sqlite3_finalize(stmt);
+    
+}
+
+
+std::vector<string> queryExtension(const char* name) { 
+
+    sqlite3* db = openDB();
+    if (db == nullptr) {
+        std::cerr << "Unable to open DB file.\n";
+        return {""};
+    }
+
+    const char* query = "SELECT path FROM files WHERE extension = ?";
+
+    sqlite3_stmt* statement;
+
+
+    if (sqlite3_prepare_v2(db, query, -1, &statement, nullptr) != SQLITE_OK) {
+        std::cerr << "Failed to prepare query: " << sqlite3_errmsg(db) << "\n";
+        sqlite3_close(db);
+        return {""};
+    }
+
+    sqlite3_bind_text(statement, 1, name, -1, SQLITE_TRANSIENT);
+
+    std::vector<string> results;
+    while (sqlite3_step(statement) == SQLITE_ROW) { // get ALL results, not just the first
+        const unsigned char* path = sqlite3_column_text(statement, 0);
+        if (path) results.push_back(reinterpret_cast<const char*>(path));
+    }
+
+    if (results.empty()) {
+        std::cerr << "No match found for filename: " << name << "\n";
+    }
+
+    sqlite3_finalize(statement);
+    sqlite3_close(db);
+    return results;
+}
+
+std::vector<string> queryFor(const char* name) { 
+
+    sqlite3* db = openDB();
+    if (db == nullptr) {
+        std::cerr << "Unable to open DB file.\n";
+        return {""};
+    }
+
+    const char* query = "SELECT path FROM files WHERE filename = ? NOCASE;";
+
+    sqlite3_stmt* statement;
+
+
+    if (sqlite3_prepare_v2(db, query, -1, &statement, nullptr) != SQLITE_OK) {
+        std::cerr << "Failed to prepare query: " << sqlite3_errmsg(db) << "\n";
+        sqlite3_close(db);
+        return {""};
+    }
+
+    sqlite3_bind_text(statement, 1, name, -1, SQLITE_TRANSIENT);
+
+    std::vector<string> results;
+    while (sqlite3_step(statement) == SQLITE_ROW) { // get ALL results, not just the first
+        const unsigned char* path = sqlite3_column_text(statement, 0);
+        if (path) results.push_back(reinterpret_cast<const char*>(path));
+    }
+
+    if (results.empty()) {
+        std::cerr << "No match found for filename: " << name << "\n";
+    }
+
+
+    sqlite3_finalize(statement);
+    sqlite3_close(db);
+    return results;
+}
+
+std::vector<string> queryLike(const char* name) {
+    
+    sqlite3* db = openDB();
+    if (db == nullptr) {
+        std::cerr << "Unable to open DB file.\n";
+        return {""};
+    }
+
+    const char* query = "SELECT path FROM files WHERE filename LIKE ? COLLATE NOCASE;";
+
+    sqlite3_stmt* statement;
+
+
+    if (sqlite3_prepare_v2(db, query, -1, &statement, nullptr) != SQLITE_OK) {
+        std::cerr << "Failed to prepare query: " << sqlite3_errmsg(db) << "\n";
+        sqlite3_close(db);
+        return {""};
+    }
+
+    string pattern = string("%") + name + "%";  // adds wildcards to not fuck up the query
+    sqlite3_bind_text(statement, 1, pattern.c_str(), -1, SQLITE_TRANSIENT);
+
+    std::vector<string> results;
+    while (sqlite3_step(statement) == SQLITE_ROW) { // get ALL results, not just the first
+        const unsigned char* path = sqlite3_column_text(statement, 0);
+        if (path) results.push_back(reinterpret_cast<const char*>(path));
+    }
+
+    if (results.empty()) {
+        std::cerr << "No match found for filename: " << name << "\n";
+    }
+
+    sqlite3_finalize(statement);
+    sqlite3_close(db);
+    return results;
+}
+
+
+std::vector<string> queryFuzzy(string name) { return {""}; }
+
