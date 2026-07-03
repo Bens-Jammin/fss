@@ -5,4 +5,7 @@ A fuzzy file system indexer and search engine, named after my favourite study sp
 ## Building
 
 1. ensure you have sqlite3 installed
-2. build using `make`
+
+For C++ only, use `make run`.
+
+For the rust TUI with C++ backend, use `make run-stack`.

@@ -7,7 +7,7 @@ namespace fs = std::filesystem;
 /// @brief scans through the file tree to determine the number of elements
 /// @param rootDir 
 /// @return the number of total fs entries crawled (directories and files)
-int scan(string rootDir, int count=0, bool debug=true) {
+int scan(string rootDir, int count=0, bool debug=false) {
 
     fs::path root = rootDir;
 
@@ -69,7 +69,7 @@ void FSCrawl(string rootDir, std::vector<FileEntry>& entries, bool debug) {
 
 
 
-void crawl(string rootDir, bool debug=true) {
+void crawl(string rootDir, bool debug) {
 
     fs::path root = rootDir;
 

@@ -8,6 +8,7 @@ bool DBExists() {
     return std::filesystem::exists(dbPath); 
 }
 
+
 static int printCallback(void* /*unused*/, int argc, char** argv, char** colNames) {
     for (int i = 0; i < argc; i++) {
         std::cout << colNames[i] << " = " << (argv[i] ? argv[i] : "NULL") << "  ";
@@ -137,4 +138,5 @@ void insertFileEntries(const std::vector<FileEntry>& files) {
     sqlite3_finalize(stmt);
     
 }
+
 

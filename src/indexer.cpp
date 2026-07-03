@@ -1,15 +1,45 @@
 // api to interact with the db and crawler
 #include "fss.hpp"
+#include <unordered_map>
 
-FSSIndexer::FSSIndexer(string root) : root{root} {
+
+FSSIndexer::FSSIndexer() : root{TEST_ROOT_DIRECTORY}, debug{false} {
+    if ( DBExists() ) return;
+    initDB();
+
+}
+
+FSSIndexer::FSSIndexer(string root) : root{root}, debug{false} {
+    if ( DBExists() ) return;
+    initDB();
+}
+
+FSSIndexer::FSSIndexer(string root, bool debug) : root{root}, debug{debug} {
     if ( DBExists() ) return;
     initDB();
 }
 
 void FSSIndexer::build_index() {
     std::vector<FileEntry> files;
-    FSCrawl(this->root, files, false);
+    FSCrawl(this->root, files, debug);
 
+    insertFileEntries(files);
+}
+
+/// @brief reindexes the tree
+/// @attention This needs to be updated at some point! Not efficient
+void FSSIndexer::update() {
+    
+    sqlite3* db = openDB();
+    if (db == nullptr) {
+        std::cerr << "Unable to open DB file.\n";
+        return;
+    }
+    std::vector<FileEntry> files;
+
+    // clear table, then rebuild
+    execSQL(db, "DELETE FROM files;");
+    FSCrawl(this->root, files, false);
     insertFileEntries(files);
 }
 
@@ -42,7 +72,7 @@ std::vector<string> FSSIndexer::queryExtension(const char* name) {
     }
 
     if (results.empty()) {
-        std::cerr << "No match found for filename: " << name << "\n";
+        if (this->debug) std::cerr << "No match found for filename: " << name << "\n";
     }
 
     sqlite3_finalize(statement);
@@ -54,7 +84,7 @@ std::vector<string> FSSIndexer::queryFor(const char* name) {
 
     sqlite3* db = openDB();
     if (db == nullptr) {
-        std::cerr << "Unable to open DB file.\n";
+        if (this->debug) std::cerr << "Unable to open DB file.\n";
         return {""};
     }
 
@@ -64,7 +94,7 @@ std::vector<string> FSSIndexer::queryFor(const char* name) {
 
 
     if (sqlite3_prepare_v2(db, query, -1, &statement, nullptr) != SQLITE_OK) {
-        std::cerr << "Failed to prepare query: " << sqlite3_errmsg(db) << "\n";
+        if (this->debug) std::cerr << "Failed to prepare query: " << sqlite3_errmsg(db) << "\n";
         sqlite3_close(db);
         return {""};
     }
@@ -78,7 +108,7 @@ std::vector<string> FSSIndexer::queryFor(const char* name) {
     }
 
     if (results.empty()) {
-        std::cerr << "No match found for filename: " << name << "\n";
+        if (this->debug) std::cerr << "No match found for filename: " << name << "\n";
     }
 
 
@@ -91,7 +121,7 @@ std::vector<string> FSSIndexer::queryLike(const char* name) {
     
     sqlite3* db = openDB();
     if (db == nullptr) {
-        std::cerr << "Unable to open DB file.\n";
+        if (this->debug) std::cerr << "Unable to open DB file.\n";
         return {""};
     }
 
@@ -101,7 +131,7 @@ std::vector<string> FSSIndexer::queryLike(const char* name) {
 
 
     if (sqlite3_prepare_v2(db, query, -1, &statement, nullptr) != SQLITE_OK) {
-        std::cerr << "Failed to prepare query: " << sqlite3_errmsg(db) << "\n";
+        if (this->debug) std::cerr << "Failed to prepare query: " << sqlite3_errmsg(db) << "\n";
         sqlite3_close(db);
         return {""};
     }
@@ -116,13 +146,12 @@ std::vector<string> FSSIndexer::queryLike(const char* name) {
     }
 
     if (results.empty()) {
-        std::cerr << "No match found for filename: " << name << "\n";
+        if (this->debug) std::cerr << "No match found for filename: " << name << "\n";
     }
 
     sqlite3_finalize(statement);
     sqlite3_close(db);
     return results;
 }
-
 
 std::vector<string> FSSIndexer::queryFuzzy(string name) { return {""}; }
