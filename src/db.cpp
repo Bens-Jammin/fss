@@ -16,6 +16,10 @@ static int printCallback(void* /*unused*/, int argc, char** argv, char** colName
     return 0;
 }
 
+/// @brief  mostly for debugging, acts as a way to interact with the db and printing results to stdout (cli ?)
+/// @param db 
+/// @param command 
+/// @return 
 int execSQLWithSTDOUT(sqlite3* db, const char* command) {
     char* errorMsg = nullptr;
     int rc = sqlite3_exec(db, command, printCallback, nullptr, &errorMsg);
@@ -47,8 +51,6 @@ sqlite3* openDB() {
     }
     return db;
 }
-
-
 
 
 void initDB() {
@@ -135,118 +137,4 @@ void insertFileEntries(const std::vector<FileEntry>& files) {
     sqlite3_finalize(stmt);
     
 }
-
-
-std::vector<string> queryExtension(const char* name) { 
-
-    sqlite3* db = openDB();
-    if (db == nullptr) {
-        std::cerr << "Unable to open DB file.\n";
-        return {""};
-    }
-
-    const char* query = "SELECT path FROM files WHERE extension = ?";
-
-    sqlite3_stmt* statement;
-
-
-    if (sqlite3_prepare_v2(db, query, -1, &statement, nullptr) != SQLITE_OK) {
-        std::cerr << "Failed to prepare query: " << sqlite3_errmsg(db) << "\n";
-        sqlite3_close(db);
-        return {""};
-    }
-
-    sqlite3_bind_text(statement, 1, name, -1, SQLITE_TRANSIENT);
-
-    std::vector<string> results;
-    while (sqlite3_step(statement) == SQLITE_ROW) { // get ALL results, not just the first
-        const unsigned char* path = sqlite3_column_text(statement, 0);
-        if (path) results.push_back(reinterpret_cast<const char*>(path));
-    }
-
-    if (results.empty()) {
-        std::cerr << "No match found for filename: " << name << "\n";
-    }
-
-    sqlite3_finalize(statement);
-    sqlite3_close(db);
-    return results;
-}
-
-std::vector<string> queryFor(const char* name) { 
-
-    sqlite3* db = openDB();
-    if (db == nullptr) {
-        std::cerr << "Unable to open DB file.\n";
-        return {""};
-    }
-
-    const char* query = "SELECT path FROM files WHERE filename = ? NOCASE;";
-
-    sqlite3_stmt* statement;
-
-
-    if (sqlite3_prepare_v2(db, query, -1, &statement, nullptr) != SQLITE_OK) {
-        std::cerr << "Failed to prepare query: " << sqlite3_errmsg(db) << "\n";
-        sqlite3_close(db);
-        return {""};
-    }
-
-    sqlite3_bind_text(statement, 1, name, -1, SQLITE_TRANSIENT);
-
-    std::vector<string> results;
-    while (sqlite3_step(statement) == SQLITE_ROW) { // get ALL results, not just the first
-        const unsigned char* path = sqlite3_column_text(statement, 0);
-        if (path) results.push_back(reinterpret_cast<const char*>(path));
-    }
-
-    if (results.empty()) {
-        std::cerr << "No match found for filename: " << name << "\n";
-    }
-
-
-    sqlite3_finalize(statement);
-    sqlite3_close(db);
-    return results;
-}
-
-std::vector<string> queryLike(const char* name) {
-    
-    sqlite3* db = openDB();
-    if (db == nullptr) {
-        std::cerr << "Unable to open DB file.\n";
-        return {""};
-    }
-
-    const char* query = "SELECT path FROM files WHERE filename LIKE ? COLLATE NOCASE;";
-
-    sqlite3_stmt* statement;
-
-
-    if (sqlite3_prepare_v2(db, query, -1, &statement, nullptr) != SQLITE_OK) {
-        std::cerr << "Failed to prepare query: " << sqlite3_errmsg(db) << "\n";
-        sqlite3_close(db);
-        return {""};
-    }
-
-    string pattern = string("%") + name + "%";  // adds wildcards to not fuck up the query
-    sqlite3_bind_text(statement, 1, pattern.c_str(), -1, SQLITE_TRANSIENT);
-
-    std::vector<string> results;
-    while (sqlite3_step(statement) == SQLITE_ROW) { // get ALL results, not just the first
-        const unsigned char* path = sqlite3_column_text(statement, 0);
-        if (path) results.push_back(reinterpret_cast<const char*>(path));
-    }
-
-    if (results.empty()) {
-        std::cerr << "No match found for filename: " << name << "\n";
-    }
-
-    sqlite3_finalize(statement);
-    sqlite3_close(db);
-    return results;
-}
-
-
-std::vector<string> queryFuzzy(string name) { return {""}; }
 

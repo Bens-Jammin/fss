@@ -1,23 +1,15 @@
-#include "stdlib.h"
 #include "fss.hpp"
 
 
 
-void build_index() {
-
-    initDB();
-
-    std::vector<FileEntry> files;
-    FSCrawl(TEST_ROOT_DIRECTORY, files);
-
-    insertFileEntries(files);
-}
 
 int main() {
-
-    // build_index();
-    auto matches = queryLike("fss");
-    for (const auto& path : matches) {
-        std::cout << path << "\n";
+    std::cout << "hello from main!\n";
+    
+    FSSIndexer indexer = FSSIndexer(TEST_ROOT_DIRECTORY);
+    auto results = indexer.queryExtension(".cpp");
+    for (auto i : results) {
+        std::cout << i << "\n";
     }
+    return 0;
 }
