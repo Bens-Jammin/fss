@@ -192,10 +192,17 @@ fn ui(f: &mut Frame, app: &mut App) {
             EditorView::new(&mut app.editor_state)
                 .theme(
                     EditorTheme::default()
+                    .block(Block::default().title(
+                        app.editing_path
+                            .as_ref()
+                            .map(|p| p.display().to_string())
+                            .unwrap_or_default()
+                    ))
                     .base(Style::default().bg(Color::Black).fg(Color::White))
-                    .selection_style(Style::default().bg(Color::Yellow).fg(Color::Black))
+                    .line_numbers_style(Style::default().fg(Color::DarkGray))
+                    .selection_style(Style::default().bg(Color::Blue).fg(Color::Black))
                 ).line_numbers(LineNumbers::Absolute)
-                .render(f.area(), f.buffer_mut());
+                .render(f.area(), f.buffer_mut()); 
         }
         Mode::Browsing => {
             // Split the screen: everything except the last 3 rows on top,
