@@ -2,3 +2,4 @@
 *.db
 src/cli/target
 src/cli/Cargo.lock
+build

@@ -6,7 +6,7 @@ mod ui_utils;
 
 use ui_utils::{search_for};
 
-use edtui::{EditorState, EditorEventHandler, EditorView, Lines};
+use edtui::{EditorState, EditorEventHandler, EditorTheme, EditorStatusLine, EditorView, Lines, LineNumbers};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers},
     execute,
@@ -31,6 +31,8 @@ enum AppSignal {
     Continue,
     Quit,
 }
+
+
 
 pub(crate) fn handle_editing_key(
     key: crossterm::event::KeyEvent,
@@ -107,6 +109,7 @@ struct App {
 
 impl App {
     fn new() -> Self {
+
         Self {
             input: String::new(),
             results: Vec::new(),
@@ -181,7 +184,18 @@ fn ui(f: &mut Frame, app: &mut App) {
 
     match app.mode {
         Mode::Editing => {
-            EditorView::new(&mut app.editor_state).render(f.area(), f.buffer_mut());
+            // TODO!
+            // 1) enable setting customization (?)
+            // 2) be allowed to quit the editor
+            // 3) does it even save (?)
+            // 4) show the file name at the top
+            EditorView::new(&mut app.editor_state)
+                .theme(
+                    EditorTheme::default()
+                    .base(Style::default().bg(Color::Black).fg(Color::White))
+                    .selection_style(Style::default().bg(Color::Yellow).fg(Color::Black))
+                ).line_numbers(LineNumbers::Absolute)
+                .render(f.area(), f.buffer_mut());
         }
         Mode::Browsing => {
             // Split the screen: everything except the last 3 rows on top,
