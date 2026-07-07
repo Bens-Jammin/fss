@@ -11,5 +11,7 @@ int main() {
     for (auto i : results) {
         std::cout << i << "\n";
     }
+
+    indexer.update();
     return 0;
 }

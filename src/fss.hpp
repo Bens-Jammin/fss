@@ -55,6 +55,7 @@ class FSSIndexer {
 constexpr const char* SQLITE_DATABASE_PATH = "fss_index.db";  // must be const char* for sqlite3_open(...)
 
 bool DBExists();
+void updateEntries(const std::vector<FileEntry>& entries);
 sqlite3* openDB();
 int execSQL(sqlite3* db, const char* command);
 int scan(string rootDir, bool debug);
