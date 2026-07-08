@@ -43,7 +43,7 @@ $(TARGET_PATH): $(APP_OBJS)
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(APP_OBJS) -o $@ $(LDLIBS)
 
-test: $(TEST_RUNNER_PATH)
+test: clean $(TEST_RUNNER_PATH)
 	./$(TEST_RUNNER_PATH) -s
 
 $(TEST_RUNNER_PATH): $(LIB_OBJS) $(TEST_SRCS)
