@@ -63,5 +63,6 @@ void FSCrawl(string rootDir, std::vector<FileEntry>& entries, bool debug=true);
 void crawl(string rootDir, bool debug);
 void initDB(string DBPath);
 void insertFileEntries(const std::vector<FileEntry>& files, string DBPath);
+void updateEntries(string DBPath, const std::vector<FileEntry>& entries);
 std::time_t getMTime(const std::filesystem::path& p);
 string DBPath(string root);

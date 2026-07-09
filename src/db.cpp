@@ -150,10 +150,10 @@ void insertFileEntries(const std::vector<FileEntry>& files, string DBPath) {
 }
 
 
-void updateEntries(const std::vector<FileEntry>& entries) {
+void updateEntries(string DBPath, const std::vector<FileEntry>& entries) {
     if (entries.empty()) return;
 
-    sqlite3* db = openDB();
+    sqlite3* db = openDB( DBPath );
     if (db == nullptr) {
         std::cerr << "Unable to open DB file.\n";
         return;
