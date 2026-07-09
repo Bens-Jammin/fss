@@ -125,18 +125,51 @@ void updateDir(string root, std::unordered_map<string, int64_t>& mtimes, std::ve
 /// @brief reindexes the tree
 /// @attention This needs to be updated at some point! Not efficient
 void FSSIndexer::update() {
-    
+
     sqlite3* db = openDB(this->dbPath);
     if (db == nullptr) {
         std::cerr << "Unable to open DB file.\n";
         return;
     }
     std::vector<FileEntry> files;
+    std::unordered_map<string, int64_t> mtimes = getMTimes(db);
+    int64_t currentRootMTime = currentFileMTime( this->root );
+    auto it = mtimes.find(this->root);
+    if (it != mtimes.end() && it->second == currentRootMTime) {
+        sqlite3_close(db);
+        return; // no change
+    }
 
-    // clear table, then rebuild
-    execSQL(db, "DELETE FROM files;");
-    FSCrawl(this->root, files, false);
-    insertFileEntries(files, this->dbPath);
+    std::vector<string> pathBuffer;
+    updateDir(root, mtimes, pathBuffer);
+
+    // We also need each entry's parent id, since files table is a self-referencing
+    // tree via parent_id. Build a path->id lookup once, up front, rather than
+    // querying per-file inside the loop below.
+    std::unordered_map<string, int64_t> pathToId = getIDs(db);
+
+    std::vector<FileEntry> entries;
+    entries.reserve(pathBuffer.size());
+
+    for (const auto& path : pathBuffer) {
+        fs::path p(path);
+
+        FileEntry fe;
+        fe.path      = path;
+        fe.filename  = p.filename().string();
+        fe.extension = p.has_extension() ? p.extension().string() : "";
+        fe.isDir     = fs::is_directory(p);
+        fe.mtime     = currentFileMTime(path);
+
+        string parentPath = p.parent_path().string();
+        auto parentIt = pathToId.find(parentPath);
+        fe.parentID = (parentIt != pathToId.end()) ? parentIt->second : -1;
+
+        entries.push_back(std::move(fe));
+    }
+
+    updateEntries(this->dbPath, entries);
+    sqlite3_close(db);
 }
 
 
