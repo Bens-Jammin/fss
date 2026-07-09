@@ -27,7 +27,7 @@ TEST_CASE("indexer finds files by exact name") {
     CHECK(indexer.queryFor("main.js").empty());
     
     indexer.done();
-    }
+}
     
     
 TEST_CASE("indexers on different root stay independent") {
@@ -55,6 +55,10 @@ TEST_CASE("indexers on different root stay independent") {
     FSSIndexer indexerB(rootB.string());
     indexerB.build_index();
 
+
+    // Sanity: they resolved to different DB files
+    CHECK(DBPath(rootA.string()) != DBPath(rootB.string()));
+
     // Each indexer finds its own file...
     CHECK(indexerA.queryExtension(".rootA_marker").size() == 1);
     CHECK(indexerB.queryExtension(".rootB_marker").size() == 1);
@@ -63,13 +67,10 @@ TEST_CASE("indexers on different root stay independent") {
     CHECK(indexerA.queryExtension(".rootB_marker").empty());
     CHECK(indexerB.queryExtension(".rootA_marker").empty());
 
-    // Sanity: they resolved to different DB files
-    CHECK(DBPath(rootA.string()) != DBPath(rootB.string()));
 
     // Cleanup
     fs::remove_all(rootA);
     fs::remove_all(rootB);
-
     indexerA.done();
     indexerB.done();
 }
