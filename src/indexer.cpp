@@ -103,7 +103,7 @@ void updateDir(string root, std::unordered_map<string, int64_t>& mtimes, std::ve
     if ( !fs::exists(root) || !fs::is_directory(root) )
         return;
 
-    for (const auto& entry : fs::recursive_directory_iterator( root )) {
+    for (const auto& entry : fs::directory_iterator( root )) {
         string entryPath = entry.path().string();
 
         if (fs::is_regular_file(entry.status())) {
