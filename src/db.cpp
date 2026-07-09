@@ -107,7 +107,6 @@ void initDB(string DBPath) {
 
 
 void insertFileEntries(const std::vector<FileEntry>& files, string DBPath) {
-    std::cout << "insert entries called!\n";
     const char* insert_sql =
         "INSERT INTO files (id, path, filename, extension, parent_id, is_dir, mtime) "
         "VALUES (?, ?, ?, ?, ?, ?, ?);";

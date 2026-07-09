@@ -9,24 +9,25 @@ namespace fs = std::filesystem;
 FSSIndexer::FSSIndexer() : root{TEST_ROOT_DIRECTORY}, dbPath{DBPath(root)}, debug{false} {
     if ( DBExists(dbPath) ) return;
     initDB(dbPath);
-
+    this->build_index();
 }
 
 FSSIndexer::FSSIndexer(string root) : root{root}, dbPath{DBPath(root)}, debug{false} {
     if ( DBExists(dbPath) ) return;
     initDB(dbPath);
+    this->build_index();
 }
 
 FSSIndexer::FSSIndexer(string root, bool debug) : root{root}, dbPath{DBPath(root)}, debug{debug} {
     if ( DBExists(dbPath) ) return;
     initDB(dbPath);
+    this->build_index();
 }
 
 
 /// @brief cleanup all artifacts relating to the index. **PERMANENTLY DELETES THE DATABASE!!**
 void FSSIndexer::done() {
     clearDB(this->root);
-    std::cout << "DB exists?" <<  DBExists(this->dbPath) << "\n";
 }
 
 void FSSIndexer::build_index() {
@@ -34,7 +35,6 @@ void FSSIndexer::build_index() {
     FSCrawl(this->root, files, debug);
 
     insertFileEntries(files, this->dbPath);
-    std::cout << "index build complete!\n";
 }
 
 

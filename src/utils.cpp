@@ -26,6 +26,5 @@ std::string DBPath(std::string root) {
     fs::path databasesPath = fs::absolute( fs::path("./databases") );
     fs::create_directories(databasesPath);
     std::string path =  (databasesPath / ("fss_" + std::to_string(hash) + ".db")).string();
-        std::cout << "index on root " << root << "has hash " << hash << "\n";
     return path;
 }
