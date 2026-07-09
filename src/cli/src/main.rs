@@ -210,13 +210,45 @@ fn ui(f: &mut Frame, app: &mut App) {
             // 2) be allowed to quit the editor
             // 3) does it even save (?)
             // 4) show the file name at the top
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(1), // filename
+                    Constraint::Min(0),    // editor
+                    Constraint::Length(1), // controls
+                ])
+                .split(f.area());
+            
+            
+            let filename = app
+                .editing_path
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "Unknown file path".to_string());
+
+            let title = Paragraph::new(Line::from(vec![
+                Span::styled(filename, Style::default().fg(Color::White))
+            ]))
+            .alignment(Alignment::Center);
+            f.render_widget(title, chunks[0]);
+            
             EditorView::new(&mut app.editor_state)
                 .theme(
                     EditorTheme::default()
-                    .base(Style::default().bg(Color::Black).fg(Color::White))
-                    .selection_style(Style::default().bg(Color::Yellow).fg(Color::Black))
-                ).line_numbers(LineNumbers::Absolute)
-                .render(f.area(), f.buffer_mut());
+                        .base(Style::default().bg(Color::Black).fg(Color::White))
+                        .selection_style(Style::default().bg(Color::Yellow).fg(Color::Black))
+                )
+                .line_numbers(LineNumbers::Absolute)
+                .render(chunks[1], f.buffer_mut());
+
+            let controls = Paragraph::new(Line::from(vec![
+                Span::styled("Esc", Style::default().fg(Color::Yellow)),
+                Span::raw(": Back to browsing   "),
+                Span::styled("Ctrl+S", Style::default().fg(Color::Yellow)),
+                Span::raw(": Save   "),
+            ]));
+            f.render_widget(controls, chunks[2]);
+
         }
         Mode::Browsing => {
             // Split the screen: everything except the last 3 rows on top,
