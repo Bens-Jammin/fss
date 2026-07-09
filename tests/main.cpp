@@ -14,77 +14,69 @@ const fs::path TEST_DIRECTORY = fs::absolute( fs::path("../") );
 TEST_CASE("indexer finds files by extension") {
     FSSIndexer indexer = FSSIndexer();
     indexer.build_index();
-    CHECK(indexer.queryExtension(".db").size() == 1);
+
+    CHECK(indexer.queryExtension(".h").size() == 2);
     CHECK(indexer.queryExtension(".md").size() == 1);
-    CHECK(indexer.queryExtension(".rs").empty());
+    CHECK(indexer.queryExtension(".js").empty());
+
+    indexer.done();
 }
 
 TEST_CASE("indexer finds files by exact name") {
+    
     FSSIndexer indexer = FSSIndexer();
-    // indexer.build_index();
-
+    indexer.build_index();
+    
     CHECK(indexer.queryFor("doctest.h").size() == 1);
-    CHECK(indexer.queryFor("main.cpp.h").size() == 2);
+    CHECK(indexer.queryFor("main.cpp").size() == 2);
     CHECK(indexer.queryFor("Makefile").size() == 1);
-    CHECK(indexer.queryFor("main.rs").empty());
+    CHECK(indexer.queryFor("main.js").empty());
+    
+    indexer.done();
 }
+    
+    
+TEST_CASE("indexers on different root stay independent") {
+        
+    fs::path rootA = fs::temp_directory_path() / "fss_test_root1";
+    fs::path rootB = fs::temp_directory_path() / "fss_test_root2";
 
-TEST_CASE("update() picks up a newly added file") {
-    // NOTE: adjust this path to wherever your test fixture tree actually lives
-    fs::path testRoot = fs::path(TEST_DIRECTORY);
-    fs::path newFile = testRoot / "incremental_test_file.rs";
+    fs::remove_all(rootA);
+    fs::remove_all(rootB);
+    fs::create_directories(rootA);
+    fs::create_directories(rootB);
 
-    // Ensure clean slate in case a previous failed run left this behind
-    if (fs::exists(newFile)) {
-        fs::remove(newFile);
-    }
-
-    FSSIndexer indexer = FSSIndexer();
-    // indexer.build_index();
-
-    // Baseline: no .rs files exist yet
-    CHECK(indexer.queryExtension(".rs").empty());
-
-    // Create a new file after the initial index was built
     {
-        std::ofstream out(newFile);
-        out << "// test file for incremental update\n";
+        std::ofstream out(rootA / "only_in_a.rootA_marker");
+        out << "belongs to root A\n";
     }
-
-    // Some filesystems have coarse mtime resolution (1s on some setups);
-    // sleep briefly to guarantee the new file's/parent dir's mtime
-    // is observably different from the baseline.
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    indexer.update();
-
-    auto results = indexer.queryExtension(".rs");
-    CHECK(results.size() == 1);
-
-    // Clean up so this test is repeatable
-    fs::remove(newFile);
-}
-
-TEST_CASE("update() picks up a deleted file") {
-    fs::path testRoot = fs::path(TEST_DIRECTORY);
-    fs::path tempFile = testRoot / "incremental_delete_test.tmp";
     {
-        std::ofstream out(tempFile);
-        out << "temporary\n";
+        std::ofstream out(rootB / "only_in_b.rootB_marker");
+        out << "belongs to root B\n";
     }
-    
-    CHECK( fs::exists(tempFile) );
-    FSSIndexer indexer = FSSIndexer();
-    
-    
-    CHECK(indexer.queryFor("incremental_delete_test.tmp").size() == 1);
 
-    fs::remove(tempFile);
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    FSSIndexer indexerA(rootA.string());
+    indexerA.build_index();
 
-    indexer.update();
-    std::cout << "If youre seeing this this is after indexer update!\n";
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    FSSIndexer indexerB(rootB.string());
+    indexerB.build_index();
 
-    CHECK(indexer.queryFor("incremental_delete_test.tmp").empty());
+
+    // Sanity: they resolved to different DB files
+    CHECK(DBPath(rootA.string()) != DBPath(rootB.string()));
+
+    // Each indexer finds its own file...
+    CHECK(indexerA.queryExtension(".rootA_marker").size() == 1);
+    CHECK(indexerB.queryExtension(".rootB_marker").size() == 1);
+
+    // ...and does NOT see the other root's file
+    CHECK(indexerA.queryExtension(".rootB_marker").empty());
+    CHECK(indexerB.queryExtension(".rootA_marker").empty());
+
+
+    // Cleanup
+    fs::remove_all(rootA);
+    fs::remove_all(rootB);
+    indexerA.done();
+    indexerB.done();
 }

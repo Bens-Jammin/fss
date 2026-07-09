@@ -3,9 +3,18 @@
 #include <string>
 #include "fss.hpp"
 
-bool DBExists() { 
-    std::filesystem::path dbPath = SQLITE_DATABASE_PATH;
+
+
+bool DBExists(string DBPath) { 
+    std::filesystem::path dbPath = DBPath;
     return std::filesystem::exists(dbPath); 
+}
+
+
+void clearDB(string root) {
+    string path = DBPath(root);
+    std::cout << "clearing " << path << "\n";
+    fs::remove(path);   
 }
 
 
@@ -41,9 +50,9 @@ int execSQL(sqlite3* db, const char* command) {
     return rc;
 }
 
-sqlite3* openDB() { 
+sqlite3* openDB(string DBPath) { 
     sqlite3* db;
-    int returncode = sqlite3_open(SQLITE_DATABASE_PATH, &db);
+    int returncode = sqlite3_open(DBPath.c_str(), &db);
 
     if (returncode != SQLITE_OK) {
         std::cerr << "Can't open database: " << sqlite3_errmsg(db) << "\n";
@@ -54,9 +63,9 @@ sqlite3* openDB() {
 }
 
 
-void initDB() {
+void initDB(string DBPath) {
 
-    sqlite3* db = openDB();
+    sqlite3* db = openDB(DBPath);
     if (db == nullptr) {
         std::cerr << "Failed to open database file.\n";
         return;
@@ -97,13 +106,14 @@ void initDB() {
 }
 
 
-void insertFileEntries(const std::vector<FileEntry>& files) {
+void insertFileEntries(const std::vector<FileEntry>& files, string DBPath) {
+    std::cout << "insert entries called!\n";
     const char* insert_sql =
         "INSERT INTO files (id, path, filename, extension, parent_id, is_dir, mtime) "
         "VALUES (?, ?, ?, ?, ?, ?, ?);";
 
     
-    sqlite3* db = openDB();
+    sqlite3* db = openDB(DBPath);
     if (db == nullptr) {
         std::cerr << "Unable to open DB file.\n";
         return;
@@ -129,14 +139,14 @@ void insertFileEntries(const std::vector<FileEntry>& files) {
         sqlite3_bind_int64(stmt, 7, static_cast<sqlite3_int64>(f.mtime));
 
         if (sqlite3_step(stmt) != SQLITE_DONE) {
-            std::cerr << "Insert failed: " << sqlite3_errmsg(db) << "\n";
+            std::cerr << "Insert failed: " << sqlite3_errmsg(db)  << " for DB at " << DBPath << "\n";
         }
         sqlite3_reset(stmt);
     }
 
     execSQL(db, "COMMIT;");
     sqlite3_finalize(stmt);
-    
+    sqlite3_close(db);
 }
 
 

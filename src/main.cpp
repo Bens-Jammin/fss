@@ -12,6 +12,6 @@ int main() {
         std::cout << i << "\n";
     }
 
-    indexer.update();
+    indexer.done();
     return 0;
 }

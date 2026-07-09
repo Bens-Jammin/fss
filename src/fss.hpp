@@ -38,6 +38,7 @@ struct FileEntry {
 class FSSIndexer {
     private:
         string root;
+        string dbPath;
         bool debug;
     public:
         FSSIndexer();
@@ -45,6 +46,7 @@ class FSSIndexer {
         FSSIndexer(string root, bool debug);
         void build_index();
         void update();
+        void done();
         std::vector<string> queryExtension(const char* name);
         std::vector<string> queryFor(const char* name);
         std::vector<string> queryLike(const char* name);
@@ -52,15 +54,14 @@ class FSSIndexer {
 };
 
 
-constexpr const char* SQLITE_DATABASE_PATH = "fss_index.db";  // must be const char* for sqlite3_open(...)
-
-bool DBExists();
-void updateEntries(const std::vector<FileEntry>& entries);
-sqlite3* openDB();
+void clearDB(string root);
+bool DBExists(string DBPath);
+sqlite3* openDB(string DBPath);
 int execSQL(sqlite3* db, const char* command);
 int scan(string rootDir, bool debug);
 void FSCrawl(string rootDir, std::vector<FileEntry>& entries, bool debug=true);
 void crawl(string rootDir, bool debug);
-void initDB();
-void insertFileEntries(const std::vector<FileEntry>& files);
+void initDB(string DBPath);
+void insertFileEntries(const std::vector<FileEntry>& files, string DBPath);
 std::time_t getMTime(const std::filesystem::path& p);
+string DBPath(string root);
