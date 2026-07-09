@@ -14,7 +14,7 @@ use crossterm::{
 };
 use ratatui::{
     backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
     widgets::{Widget, Block, Borders, List, ListItem, Paragraph, ListState},
@@ -32,7 +32,16 @@ enum AppSignal {
     Quit,
 }
 
+enum BannerType {
+    Failure,
+    Warning,
+    Info
+}
 
+struct Banner {
+    pub message: String,
+    pub kind: BannerType, 
+}
 
 pub(crate) fn handle_editing_key(
     key: crossterm::event::KeyEvent,
@@ -75,10 +84,20 @@ pub(crate) fn handle_browsing_key(
         KeyCode::Right => {
             if let Some(i) = app.list_state.selected() {
                 if let Some(path) = app.results.get(i) {
-                    let content = std::fs::read_to_string(path)?;
-                    app.editor_state = EditorState::new(Lines::from(content));
-                    app.editing_path = Some(path.clone());
-                    app.mode = Mode::Editing;
+                    match std::fs::read_to_string(path) {
+                        Ok(content) => {
+                            app.editor_state = EditorState::new(Lines::from(content));
+                            app.editing_path = Some(path.clone());
+                            app.mode = Mode::Editing;
+                            app.banner = None; // clear any stale banner
+                        }
+                        Err(e) => {
+                            app.banner = Some(Banner {
+                                message: format!("WARNING: Can't open {}: Check file permissions and type (artifact, directory, executable, etc)", path.display(), ), // use 'e' if want to show err
+                                kind: BannerType::Warning,
+                            });
+                        }
+                    }                
                 }
             }
         }
@@ -105,6 +124,7 @@ struct App {
     editor_state: EditorState,
     editor_handler: EditorEventHandler,
     editing_path: Option<PathBuf>,
+    banner: Option<Banner>,
 }
 
 impl App {
@@ -118,13 +138,14 @@ impl App {
             editor_state: EditorState::default(),
             editor_handler: EditorEventHandler::default(), // vim mode
             editing_path: None,
+            banner: None,
         }
     }
 
     fn submit(&mut self) {
         self.results = search_for(&self.input);
         self.input.clear();
-
+        self.banner = None;
         if self.results.is_empty() {
             self.list_state.select(None);
         } else {
@@ -235,7 +256,7 @@ fn ui(f: &mut Frame, app: &mut App) {
                 let list = list.highlight_style(
                     Style::default()
                         .bg(Color::Blue)
-                        .fg(Color::Black)
+                        .fg(Color::DarkGray)
                 ).highlight_symbol("> ");
                 f.render_stateful_widget(list, chunks[0], &mut app.list_state);
             }
@@ -267,6 +288,24 @@ fn ui(f: &mut Frame, app: &mut App) {
         }
     }
 
-}
+    if let Some(banner) = &app.banner {
+        let color = match banner.kind {
+            BannerType::Failure => Color::Red,
+            BannerType::Warning => Color::Yellow,
+            BannerType::Info => Color::Blue,
+        };
 
-// TODO: search crashes program now, nothing should be highlighted on search
+        let banner_area = Rect {
+            x: f.area().x,
+            y: f.area().y,
+            width: f.area().width,
+            height: 1,
+        };
+
+        let banner_widget = Paragraph::new(banner.message.as_str())
+            .style(Style::default().fg(Color::Black).bg(color))
+            .alignment(Alignment::Left);
+        f.render_widget(banner_widget, banner_area);
+    }
+
+}
