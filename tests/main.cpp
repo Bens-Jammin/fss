@@ -1,11 +1,17 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-
-#include "doctest.h"
 #include "../src/fss.hpp"
+#include <fstream>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <string>
+
+namespace fs = std::filesystem;
+
+const fs::path TEST_DIRECTORY = fs::absolute( fs::path("../") );
 
 TEST_CASE("indexer finds files by extension") {
-
     FSSIndexer indexer = FSSIndexer();
     indexer.build_index();
 

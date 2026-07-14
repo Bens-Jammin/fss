@@ -147,3 +147,63 @@ void insertFileEntries(const std::vector<FileEntry>& files, string DBPath) {
     sqlite3_finalize(stmt);
     sqlite3_close(db);
 }
+
+
+void updateEntries(string DBPath, const std::vector<FileEntry>& entries) {
+    if (entries.empty()) return;
+
+    sqlite3* db = openDB( DBPath );
+    if (db == nullptr) {
+        std::cerr << "Unable to open DB file.\n";
+        return;
+    }
+
+    const char* query =
+        "UPDATE files "
+        "SET filename = ?, extension = ?, parent_id = ?, is_dir = ?, mtime = ? "
+        "WHERE path = ?";
+
+    sqlite3_stmt* statement;
+    if (sqlite3_prepare_v2(db, query, -1, &statement, nullptr) != SQLITE_OK) {
+        std::cerr << "Failed to prepare update: " << sqlite3_errmsg(db) << "\n";
+        sqlite3_close(db);
+        return;
+    }
+
+    if (sqlite3_exec(db, "BEGIN TRANSACTION", nullptr, nullptr, nullptr) != SQLITE_OK) {
+        std::cerr << "Failed to begin transaction: " << sqlite3_errmsg(db) << "\n";
+        sqlite3_finalize(statement);
+        sqlite3_close(db);
+        return;
+    }
+
+    for (const auto& entry : entries) {
+        sqlite3_bind_text(statement, 1, entry.filename.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, entry.extension.c_str(), -1, SQLITE_TRANSIENT);
+
+        if (entry.parentID != -1) {
+            sqlite3_bind_int(statement, 3, entry.parentID);
+        } else {
+            sqlite3_bind_null(statement, 3);
+        }
+
+        sqlite3_bind_int(statement, 4, entry.isDir ? 1 : 0);
+        sqlite3_bind_int64(statement, 5, static_cast<int64_t>(entry.mtime));
+        sqlite3_bind_text(statement, 6, entry.path.c_str(), -1, SQLITE_TRANSIENT);
+
+        if (sqlite3_step(statement) != SQLITE_DONE) {
+            std::cerr << "Failed to update entry '" << entry.path << "': "
+                      << sqlite3_errmsg(db) << "\n";
+        }
+
+        sqlite3_reset(statement);      // reuse the compiled statement
+        sqlite3_clear_bindings(statement);
+    }
+
+    if (sqlite3_exec(db, "COMMIT", nullptr, nullptr, nullptr) != SQLITE_OK) {
+        std::cerr << "Failed to commit transaction: " << sqlite3_errmsg(db) << "\n";
+    }
+
+    sqlite3_finalize(statement);
+    sqlite3_close(db);
+}

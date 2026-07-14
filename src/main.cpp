@@ -12,6 +12,14 @@ int main() {
         std::cout << i << "\n";
     }
 
+    indexer.update();
+
+    results = indexer.queryExtension(".cpp");
+    for (auto i : results) {
+        std::cout << i << "\n";
+    }
+
+
     indexer.done();
     return 0;
 }
