@@ -3,25 +3,34 @@
 #include <unordered_map>
 #include <chrono>
 #include <vector>
+#include <cstring>
 
 namespace fs = std::filesystem;
+
+FSS_RESULT result(FSS_STATUS status, const std::string& msg) {
+    char* buf = static_cast<char*>(std::malloc(msg.size() + 1));
+    std::memcpy(buf, msg.c_str(), msg.size() + 1);
+    return { status, buf };
+}
 
 FSSIndexer::FSSIndexer() : root{TEST_ROOT_DIRECTORY}, dbPath{DBPath(root)}, debug{false} {
     if ( DBExists(dbPath) ) return;
     initDB(dbPath);
-    this->build_index();
 }
 
 FSSIndexer::FSSIndexer(string root) : root{root}, dbPath{DBPath(root)}, debug{false} {
     if ( DBExists(dbPath) ) return;
     initDB(dbPath);
-    this->build_index();
+    FSS_RESULT res = this->build_index();
 }
 
 FSSIndexer::FSSIndexer(string root, bool debug) : root{root}, dbPath{DBPath(root)}, debug{debug} {
     if ( DBExists(dbPath) ) return;
     initDB(dbPath);
-    this->build_index();
+    FSS_RESULT res = this->build_index();
+    if (res.status != FSS_STATUS::Ok) {
+        throw FSSException(res.status, res.message);
+    }
 }
 
 
@@ -30,11 +39,24 @@ void FSSIndexer::done() {
     clearDB(this->root);
 }
 
-void FSSIndexer::build_index() {
-    std::vector<FileEntry> files;
-    FSCrawl(this->root, files, debug);
+FSS_RESULT FSSIndexer::build_index() {
 
-    insertFileEntries(files, this->dbPath);
+    if (!fs::exists(this->root)) {
+        return result(FSS_STATUS::CrawlErr, "Root path does not exist: " + this->root);
+    }
+
+    std::vector<FileEntry> files;
+    try {
+        FSCrawl(this->root, files);
+        insertFileEntries(files, this->dbPath);
+    } catch (const FSSException& e) {
+        return result(e.status, e.what());
+    } catch (const std::exception& e) {
+        return result(FSS_STATUS::OtherErr, e.what());
+    } catch (...) {
+        return result(FSS_STATUS::OtherErr, "Unknown error during update");
+    }
+    return result( FSS_STATUS::Ok, "" );
 }
 
 
@@ -120,56 +142,80 @@ void updateDir(string root, std::unordered_map<string, int64_t>& mtimes, std::ve
 }
 
 
-
-
 /// @brief reindexes the tree
 /// @attention This needs to be updated at some point! Not efficient
-void FSSIndexer::update() {
+FSS_RESULT FSSIndexer::update() {
 
-    sqlite3* db = openDB(this->dbPath);
-    if (db == nullptr) {
-        std::cerr << "Unable to open DB file.\n";
-        return;
+    if (!fs::exists(this->root)) {
+        return result(FSS_STATUS::CrawlErr, "Root path does not exist: " + this->root);
     }
-    std::vector<FileEntry> files;
-    std::unordered_map<string, int64_t> mtimes = getMTimes(db);
-    int64_t currentRootMTime = currentFileMTime( this->root );
-    auto it = mtimes.find(this->root);
-    if (it != mtimes.end() && it->second == currentRootMTime) {
+ 
+    sqlite3* db = nullptr;
+
+    try {
+        db = openDB(this->dbPath);
+        if (db == nullptr) {
+            return result( FSS_STATUS::DbOpen, "Unable to open DB" );
+        }
+
+        std::unordered_map<string, int64_t> mtimes = getMTimes(db);
+        
+        int64_t currentRootMTime = currentFileMTime( this->root );
+        auto it = mtimes.find(this->root);
+        if (it != mtimes.end() && it->second == currentRootMTime) {
+            sqlite3_close(db);
+            return result(FSS_STATUS::Ok, ""); // no change
+        }
+    
+        std::vector<string> pathBuffer;
+        updateDir(root, mtimes, pathBuffer);
+    
+        // We also need each entry's parent id, since files table is a self-referencing
+        // tree via parent_id. Build a path->id lookup once, up front, rather than
+        // querying per-file inside the loop below.
+        std::unordered_map<string, int64_t> pathToId = getIDs(db);
+    
+        std::vector<FileEntry> entries;
+        entries.reserve(pathBuffer.size());
+    
+        for (const auto& path : pathBuffer) {
+            fs::path p(path);
+
+            std::error_code err;
+
+            bool isDir = fs::is_directory(p, err);
+            if (err) {
+                continue; // entry vanished/became inaccessible. skip
+            }
+    
+            FileEntry fe;
+            fe.path      = path;
+            fe.filename  = p.filename().string();
+            fe.extension = p.has_extension() ? p.extension().string() : "";
+            fe.isDir     = isDir;
+            fe.mtime     = currentFileMTime(path);
+    
+            string parentPath = p.parent_path().string();
+            auto parentIt = pathToId.find(parentPath);
+            fe.parentID = (parentIt != pathToId.end()) ? parentIt->second : -1;
+    
+            entries.push_back(std::move(fe));
+        }
+    
+        updateEntries(this->dbPath, entries);
         sqlite3_close(db);
-        return; // no change
+        return result(FSS_STATUS::Ok, "");
+    } catch (const FSSException& e) {
+        if (db) sqlite3_close(db);
+        return result(e.status, e.what());
+    } catch (const std::exception& e) {
+        if (db) sqlite3_close(db);
+        return result(FSS_STATUS::OtherErr, e.what());
+    } catch (...) {
+        if (db) sqlite3_close(db);
+        return result(FSS_STATUS::OtherErr, "Unknown error during update");
     }
 
-    std::vector<string> pathBuffer;
-    updateDir(root, mtimes, pathBuffer);
-
-    // We also need each entry's parent id, since files table is a self-referencing
-    // tree via parent_id. Build a path->id lookup once, up front, rather than
-    // querying per-file inside the loop below.
-    std::unordered_map<string, int64_t> pathToId = getIDs(db);
-
-    std::vector<FileEntry> entries;
-    entries.reserve(pathBuffer.size());
-
-    for (const auto& path : pathBuffer) {
-        fs::path p(path);
-
-        FileEntry fe;
-        fe.path      = path;
-        fe.filename  = p.filename().string();
-        fe.extension = p.has_extension() ? p.extension().string() : "";
-        fe.isDir     = fs::is_directory(p);
-        fe.mtime     = currentFileMTime(path);
-
-        string parentPath = p.parent_path().string();
-        auto parentIt = pathToId.find(parentPath);
-        fe.parentID = (parentIt != pathToId.end()) ? parentIt->second : -1;
-
-        entries.push_back(std::move(fe));
-    }
-
-    updateEntries(this->dbPath, entries);
-    sqlite3_close(db);
 }
 
 

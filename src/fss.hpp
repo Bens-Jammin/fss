@@ -11,6 +11,7 @@
 #include <filesystem>
 #include "stdlib.h"
 #include <sqlite3.h>
+#include "exception.hpp"
 
 
 using string = std::string;
@@ -44,8 +45,8 @@ class FSSIndexer {
         FSSIndexer();
         FSSIndexer(string root);
         FSSIndexer(string root, bool debug);
-        void build_index();
-        void update();
+        FSS_RESULT build_index();
+        FSS_RESULT update();
         void done();
         std::vector<string> queryExtension(const char* name);
         std::vector<string> queryFor(const char* name);
@@ -57,9 +58,9 @@ class FSSIndexer {
 void clearDB(string root);
 bool DBExists(string DBPath);
 sqlite3* openDB(string DBPath);
-int execSQL(sqlite3* db, const char* command);
+void execSQL(sqlite3* db, const char* command);
 int scan(string rootDir, bool debug);
-void FSCrawl(string rootDir, std::vector<FileEntry>& entries, bool debug=true);
+bool FSCrawl(string rootDir, std::vector<FileEntry>& entries);
 void crawl(string rootDir, bool debug);
 void initDB(string DBPath);
 void insertFileEntries(const std::vector<FileEntry>& files, string DBPath);
