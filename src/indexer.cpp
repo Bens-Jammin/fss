@@ -7,6 +7,18 @@
 
 namespace fs = std::filesystem;
 
+
+
+bool DBisEmpty(sqlite3* db) {
+    const char* q = "SELECT COUNT(*) FROM files;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, q, -1, &stmt, nullptr) != SQLITE_OK) return true;
+    int64_t count = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) count = sqlite3_column_int64(stmt, 0);
+    sqlite3_finalize(stmt);
+    return count == 0;
+}
+
 FSS_RESULT result(FSS_STATUS status, const std::string& msg) {
     char* buf = static_cast<char*>(std::malloc(msg.size() + 1));
     std::memcpy(buf, msg.c_str(), msg.size() + 1);
@@ -14,22 +26,50 @@ FSS_RESULT result(FSS_STATUS status, const std::string& msg) {
 }
 
 FSSIndexer::FSSIndexer() : root{TEST_ROOT_DIRECTORY}, dbPath{DBPath(root)}, debug{false} {
-    if ( DBExists(dbPath) ) return;
-    initDB(dbPath);
+    bool existed = DBExists(dbPath);
+    if (!existed) initDB(dbPath);
+
+    sqlite3* db = openDB(dbPath);
+    bool needsBuild = !existed || DBisEmpty(db);
+    sqlite3_close(db);
+
+    if (needsBuild) {
+        FSS_RESULT res = this->build_index();
+        if (res.status != FSS_STATUS::Ok) {
+            throw FSSException(res.status, res.message);
+        }
+    }
 }
 
 FSSIndexer::FSSIndexer(string root) : root{root}, dbPath{DBPath(root)}, debug{false} {
-    if ( DBExists(dbPath) ) return;
-    initDB(dbPath);
-    FSS_RESULT res = this->build_index();
+    bool existed = DBExists(dbPath);
+    if (!existed) initDB(dbPath);
+
+    sqlite3* db = openDB(dbPath);
+    bool needsBuild = !existed || DBisEmpty(db);
+    sqlite3_close(db);
+
+    if (needsBuild) {
+        FSS_RESULT res = this->build_index();
+        if (res.status != FSS_STATUS::Ok) {
+            throw FSSException(res.status, res.message);
+        }
+    }
 }
 
 FSSIndexer::FSSIndexer(string root, bool debug) : root{root}, dbPath{DBPath(root)}, debug{debug} {
-    if ( DBExists(dbPath) ) return;
-    initDB(dbPath);
-    FSS_RESULT res = this->build_index();
-    if (res.status != FSS_STATUS::Ok) {
-        throw FSSException(res.status, res.message);
+    bool existed = DBExists(dbPath);
+    if (!existed) initDB(dbPath);
+
+    sqlite3* db = openDB(dbPath);
+    bool needsBuild = !existed || DBisEmpty(db);
+    sqlite3_close(db);
+
+    if (needsBuild) {
+        FSS_RESULT res = this->build_index();
+        if (res.status != FSS_STATUS::Ok) {
+            throw FSSException(res.status, res.message);
+        }
     }
 }
 
@@ -131,6 +171,7 @@ void updateDir(string root, std::unordered_map<string, int64_t>& mtimes, std::ve
         if (fs::is_regular_file(entry.status())) {
             pathBuf.push_back( entryPath );
         } else {
+            pathBuf.push_back( entryPath );
             // if the subdir has been updated, recursively run this function on it
             int64_t currentMTime = currentFileMTime( entryPath );
             auto it = mtimes.find(entryPath);
