@@ -35,15 +35,38 @@ int scan(string rootDir, bool debug) {
     return scan(rootDir, 0, debug);
 }
 
-void FSCrawl(string rootDir, int parentID, int& nextID, std::vector<FileEntry>& entries, bool debug) {
+void FSCrawl(string rootDir, int parentID, int& nextID, std::vector<FileEntry>& entries) {
+    
+    std::error_code err;
     fs::path root = rootDir;
-    if (!fs::exists(root)) {
-        if (debug) std::cout << "[FSS DEBUG] CRAWLER ERROR --" << rootDir << " doesnt exist.\n";
-        return;
+
+
+    if (!fs::exists(root, err)) {
+        if ( err && parentID == -1 ) {
+            // root failed bad, nothing to index at all
+            throw FSSException(
+                FSS_STATUS::CrawlErr, 
+                "Root path does not exist or is inaccessible: " + rootDir + " (" + err.message() + ")"
+            );
+        }
+        return; // vanished mid-crawl. skip
     }
 
+    bool isDir = fs::is_directory(root, err);
+    if (err) {
+        return; // unable to determine type. skip
+    }
+
+    
+    std::time_t mtime;
+    try {
+        mtime = getMTime(root);
+    } catch (const std::exception&) {
+        mtime = 0;
+    }
+    
+    
     int id = nextID++;
-    bool isDir = fs::is_directory(root);
     entries.push_back({
         id,
         parentID,
@@ -51,20 +74,29 @@ void FSCrawl(string rootDir, int parentID, int& nextID, std::vector<FileEntry>& 
         root.filename().string(),
         isDir ? "" : root.extension().string(),
         isDir,
-        getMTime(root)
+        mtime,
     });
 
     if (isDir) {
-        for (const auto& entry : fs::directory_iterator(root)) {
-            string entryName = entry.path().string();
-            FSCrawl(entryName, id, nextID, entries, debug);
+        fs::directory_iterator it(root, fs::directory_options::skip_permission_denied, err);
+        if ( err ) {
+            return; // can't open. index but without children
+        }
+
+        for (; it != fs::directory_iterator(); it.increment(err) ) {
+            if ( err ) { 
+                break; // iteration failed (entry disappeared ?) stop but keep what we have
+            }
+
+            FSCrawl(it->path().string(), id, nextID, entries);
         }
     }
 }
 
-void FSCrawl(string rootDir, std::vector<FileEntry>& entries, bool debug) {
+bool FSCrawl(string rootDir, std::vector<FileEntry>& entries) {
     int nextID = 0;
-    FSCrawl(rootDir, -1, nextID, entries, debug);
+    FSCrawl(rootDir, -1, nextID, entries);
+    return true;
 }
 
 
