@@ -1,0 +1,19 @@
+warning: variants `Failure` and `Info` are never constructed
+  --> src\app.rs:19:5
+   |
+18 | pub enum BannerType {
+   |          ---------- variants in this enum
+19 |     Failure,
+   |     ^^^^^^^
+20 |     Warning,
+21 |     Info,
+   |     ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `fss_cli` (bin "fss_cli") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 0.47s
+[ffi] cwd = "C:\\Users\\benem\\LocalProjects\\fss"
+[ffi] resolved db path = C:\Users\benem\LocalProjects\fss\databases\fss_9118906344791161828.db
+[ffi] results = 
+[ffi] like results = 
