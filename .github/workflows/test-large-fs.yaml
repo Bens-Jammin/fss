@@ -17,3 +17,57 @@ jobs:
         uses: actions/checkout@v4
       - name: Run unit tests
         run: make test
+      - name: Populate runner with large fs
+        run: |
+          #!/bin/bash
+
+          # Configuration
+          BASE_DIR="./stress_test_fs"
+          NUM_PARENTS=10
+          NUM_SUBDIRS=100
+          FILES_PER_SUBDIR=100
+
+          # Total targets: 
+          # 10 * 100 = 1,000 directories
+          # 1,000 * 100 = 100,000 files
+
+          echo "============================================="
+          echo " Starting filesystem stress generator"
+          echo " Target: $NUM_PARENTS parents x $NUM_SUBDIRS subdirs x $FILES_PER_SUBDIR files = 100,000 files"
+          echo "============================================="
+
+          # Clean up any existing test directory to ensure a fresh run
+          if [ -d "$BASE_DIR" ]; then
+              echo "Removing existing directory: $BASE_DIR..."
+              rm -rf "$BASE_DIR"
+          fi
+
+          mkdir -p "$BASE_DIR"
+          start_time=$SECONDS
+
+          # Outer loop: Parent directories
+          for p in $(seq -f "%02g" 1 $NUM_PARENTS); do
+              parent_path="$BASE_DIR/parent_$p"
+              mkdir -p "$parent_path"
+              
+              # Middle loop: Subdirectories
+              for s in $(seq -f "%03g" 1 $NUM_SUBDIRS); do
+                  subdir_path="$parent_path/sub_$s"
+                  mkdir -p "$subdir_path"
+                  
+                  # Inner file generation: Optimized via brace expansion to minimize system forks
+                  # This creates 100 files in a single execution of 'touch'
+                  touch "$subdir_path"/file_{001..100}.dat
+              done
+              
+              echo "  -> Created parent_$p (10,000 files total so far...)"
+          done
+
+          elapsed=$(( SECONDS - start_time ))
+
+          echo "============================================="
+          echo " Execution Complete!"
+          echo " Duration: $elapsed seconds"
+          echo " Total directories created: $(find "$BASE_DIR" -type d | wc -l)"
+          echo " Total files created:       $(find "$BASE_DIR" -type f | wc -l)"
+          echo "============================================="
