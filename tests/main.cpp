@@ -7,10 +7,15 @@
 #include <filesystem>
 #include <string>
 #include "doctest.h"
+#include <iostream>
 
 namespace fs = std::filesystem;
 
 const fs::path TEST_DIRECTORY = fs::absolute( fs::path("../") );
+
+TEST_CASE ("debug: show where the test directory is") {
+    std::cout << "TEST DIR: " << TEST_DIRECTORY << "\n";
+}
 
 TEST_CASE("indexer finds files by extension") {
     FSSIndexer indexer = FSSIndexer();

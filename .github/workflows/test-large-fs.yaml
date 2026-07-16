@@ -1,0 +1,19 @@
+# Deploy a vm with a large file structure and test indexing works
+
+name: Test indexing on large file tree
+
+on:
+  push: 
+    branches: [main, ghactions]
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Run unit tests
+        run: make test
