@@ -11,14 +11,16 @@
 
 namespace fs = std::filesystem;
 
-const fs::path TEST_DIRECTORY = fs::absolute( fs::path("../") );
+// ../fss/tests/main -> ../fss/tests -> ../fss
+const fs::path TEST_DIRECTORY = fs::absolute(fs::path(__FILE__)).parent_path().parent_path();
 
 TEST_CASE ("debug: show where the test directory is") {
+
     std::cout << "TEST DIR: " << TEST_DIRECTORY << "\n";
 }
 
 TEST_CASE("indexer finds files by extension") {
-    FSSIndexer indexer = FSSIndexer();
+    FSSIndexer indexer = FSSIndexer(TEST_DIRECTORY.string());
     indexer.build_index();
 
     CHECK(indexer.queryExtension(".cpp").size() > 5);
@@ -30,7 +32,7 @@ TEST_CASE("indexer finds files by extension") {
 
 TEST_CASE("indexer finds files by exact name") {
     
-    FSSIndexer indexer = FSSIndexer();
+    FSSIndexer indexer = FSSIndexer(TEST_DIRECTORY.string());
     indexer.build_index();
     
     CHECK(indexer.queryFor("doctest.h").size() == 1);
