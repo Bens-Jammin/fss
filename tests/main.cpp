@@ -11,7 +11,8 @@
 
 namespace fs = std::filesystem;
 
-const fs::path TEST_DIRECTORY = fs::absolute( fs::path("../") );
+const fs::path TEST_DIRECTORY = fs::path(__FILE__).parent_path() / "..";
+
 
 TEST_CASE ("debug: show where the test directory is") {
     std::cout << "TEST DIR: " << TEST_DIRECTORY << "\n";
