@@ -17,7 +17,7 @@
 using string = std::string;
 namespace fs = std::filesystem;
 
-const string TEST_ROOT_DIRECTORY = "C:/Users/benem/LocalProjects/fss";
+const string TEST_ROOT_DIRECTORY = "C:\\Users\\benem\\LocalProjects\\fss";
 
 struct ChildEntry {
     int64_t id;

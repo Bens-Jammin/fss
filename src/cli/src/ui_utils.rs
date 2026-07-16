@@ -11,7 +11,7 @@ pub(crate) fn search_for(text: &str) -> Vec<PathBuf> {
     for r in exact_match_results {
         list_items.push( PathBuf::from( r ));
     }
-    if !list_items.is_empty() { return list_items; }
+    // if !list_items.is_empty() { return list_items; }
 
 
     // --- check for a rough match ---
@@ -19,7 +19,7 @@ pub(crate) fn search_for(text: &str) -> Vec<PathBuf> {
     for r in like_match_results {
         list_items.push( PathBuf::from( r ));
     }
-    if !list_items.is_empty() { return list_items; }
+    // if !list_items.is_empty() { return list_items; }
 
 
     // --- try matching extensions ---
