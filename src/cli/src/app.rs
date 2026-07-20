@@ -53,7 +53,7 @@ impl App {
 
     pub fn submit(&mut self) {
         self.results = search_for(&self.input);
-        self.input.clear();
+        // self.input.clear();
         self.banner = None;
         if self.results.is_empty() {
             self.list_state.select(None);

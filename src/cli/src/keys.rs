@@ -66,16 +66,27 @@ pub(crate) fn handle_browsing_key(
                 }
             }
         }
-        KeyCode::Enter => {
+        // KeyCode::Enter => {
+        //     if !app.input.trim().is_empty() {
+        //         app.submit();
+        //         app.list_state.select(Some(0));
+        //     }
+        // }
+        KeyCode::Char(c) => {
+            app.input.push(c);
             if !app.input.trim().is_empty() {
                 app.submit();
                 app.list_state.select(Some(0));
             }
         }
-        KeyCode::Char(c) => app.input.push(c),
         KeyCode::Backspace => {
             app.input.pop();
+            if !app.input.trim().is_empty() {
+                app.submit();
+                app.list_state.select(Some(0));
+            }
         }
+
         _ => {}
     }
     Ok(AppSignal::Continue)
