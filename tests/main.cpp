@@ -13,6 +13,26 @@ namespace fs = std::filesystem;
 
 const fs::path TEST_DIRECTORY = fs::absolute( fs::path("../") );
 
+long long queryInt(sqlite3* db, const char* sql) {
+    sqlite3_stmt* stmt = nullptr;
+    REQUIRE(sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK);
+    REQUIRE(sqlite3_step(stmt) == SQLITE_ROW);
+    long long val = sqlite3_column_int64(stmt, 0);
+    sqlite3_finalize(stmt);
+    return val;
+}
+
+std::string queryText(sqlite3* db, const char* sql) {
+    sqlite3_stmt* stmt = nullptr;
+    REQUIRE(sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK);
+    REQUIRE(sqlite3_step(stmt) == SQLITE_ROW);
+    const unsigned char* text = sqlite3_column_text(stmt, 0);
+    std::string val = text ? reinterpret_cast<const char*>(text) : "";
+    sqlite3_finalize(stmt);
+    return val;
+}
+
+
 TEST_CASE("indexer finds files by extension") {
     FSSIndexer indexer = FSSIndexer();
     indexer.build_index();
@@ -88,11 +108,7 @@ TEST_CASE("indexer handles a nonexistent root") {
     fs::path badRoot = fs::temp_directory_path() / "fss_test_does_not_exist_xyz";
     fs::remove_all(badRoot); // make sure it really doesn't exist
 
-    FSSIndexer indexer(badRoot.string());
-    CHECK_THROWS_AS(indexer.build_index(), FSSException);
-
-    
-    indexer.done();
+    CHECK_THROWS_AS(FSSIndexer indexer(badRoot.string()), FSSException);
 }
 
 
@@ -162,14 +178,30 @@ TEST_CASE("update recovers from a corrupted/non-sqlite file at the db path") {
     fs::create_directories(dbPath.parent_path());
     { std::ofstream bogus(dbPath); bogus << "not a real sqlite file"; }
 
-    FSSIndexer indexer(root.string());
-    CHECK_THROWS_AS(indexer.build_index(), FSSException);
+    // FSSIndexer indexer(root.string());
+    CHECK_THROWS_AS(FSSIndexer(root.string()), FSSException);
 
-    // // sqlite should refuse to treat this as a valid db — should surface
-    // // as an error rather than crashing or silently overwriting it unexpectedly
-    // CHECK(r.status != FSS_STATUS::Ok);
-    // if (r.message) free(r.message);
-
-    indexer.done();
     fs::remove_all(root);
+}
+
+
+TEST_CASE("check a metadata table is created when an index is made") {
+    fs::path root = fs::temp_directory_path() / "root";
+    fs::create_directories(root);
+    { std::ofstream out(root / "file1.txt"); out << "hello\n"; }
+
+    FSSIndexer indexer = FSSIndexer(root.string());
+    indexer.build_index();
+
+    std::string dbPath = DBPath(root.string());
+    sqlite3* db = openDB(dbPath);
+
+    auto row_count = queryInt(db, "SELECT COUNT(*) FROM index_metadata");
+    CHECK(row_count == 1);
+
+    auto root_val = queryText(db, "SELECT root FROM index_metadata WHERE id = 1");
+    CHECK(root_val == root);
+
+    auto last_update = queryInt(db, "SELECT last_update FROM index_metadata WHERE id = 1");
+    CHECK(last_update > 0);
 }
