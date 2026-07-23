@@ -27,7 +27,7 @@ FSS_RESULT result(FSS_STATUS status, const std::string& msg) {
 
 FSSIndexer::FSSIndexer() : root{TEST_ROOT_DIRECTORY}, dbPath{DBPath(root)}, debug{false} {
     bool existed = DBExists(dbPath);
-    if (!existed) initDB(dbPath);
+    if (!existed) initDB(root, dbPath);
 
     sqlite3* db = openDB(dbPath);
     bool needsBuild = !existed || DBisEmpty(db);
@@ -43,7 +43,7 @@ FSSIndexer::FSSIndexer() : root{TEST_ROOT_DIRECTORY}, dbPath{DBPath(root)}, debu
 
 FSSIndexer::FSSIndexer(string root) : root{root}, dbPath{DBPath(root)}, debug{false} {
     bool existed = DBExists(dbPath);
-    if (!existed) initDB(dbPath);
+    if (!existed) initDB(root, dbPath);
 
     sqlite3* db = openDB(dbPath);
     bool needsBuild = !existed || DBisEmpty(db);
@@ -59,7 +59,7 @@ FSSIndexer::FSSIndexer(string root) : root{root}, dbPath{DBPath(root)}, debug{fa
 
 FSSIndexer::FSSIndexer(string root, bool debug) : root{root}, dbPath{DBPath(root)}, debug{debug} {
     bool existed = DBExists(dbPath);
-    if (!existed) initDB(dbPath);
+    if (!existed) initDB(root, dbPath);
 
     sqlite3* db = openDB(dbPath);
     bool needsBuild = !existed || DBisEmpty(db);
@@ -84,11 +84,14 @@ FSS_RESULT FSSIndexer::build_index() {
     if (!fs::exists(this->root)) {
         return result(FSS_STATUS::CrawlErr, "Root path does not exist: " + this->root);
     }
+    
 
     std::vector<FileEntry> files;
     try {
+
         FSCrawl(this->root, files);
         insertFileEntries(files, this->dbPath);
+        update_metadata_table(this->root);
     } catch (const FSSException& e) {
         return result(e.status, e.what());
     } catch (const std::exception& e) {
@@ -244,6 +247,7 @@ FSS_RESULT FSSIndexer::update() {
         }
     
         updateEntries(this->dbPath, entries);
+        update_metadata_table(this->root);
         sqlite3_close(db);
         return result(FSS_STATUS::Ok, "");
     } catch (const FSSException& e) {
