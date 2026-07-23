@@ -5,6 +5,7 @@
 #include "exception.hpp"
 
 
+
 bool DBExists(string DBPath) { 
     std::filesystem::path dbPath = DBPath;
     return std::filesystem::exists(dbPath); 
@@ -98,14 +99,21 @@ void initDB(string DBPath) {
         "   mtime      INTEGER NOT NULL"                // unix timestamp for change detection
         ")";
 
+    const char* create_metadata_table = 
+        "CREATE TABLE IF NOT EXISTS index_metadata ("
+        "   id INT NOT NULL DEFAULT 1 CHECK (id = 1)"   // force id to always be 1
+        "   CONSTRAINT pk_metadata PRIMARY KEY (id)"    // ensure its the primary key (only ever 1 col)
+        "   root            TEXT PRIMARY KEY,"
+        "   last_update     INTEGER NOT NULL"
+        ")";
         
     const char* create_indexes =
         "CREATE INDEX IF NOT EXISTS idx_files_filename ON files(filename); "
         "CREATE INDEX IF NOT EXISTS idx_files_parent ON files(parent_id); "
         "CREATE INDEX IF NOT EXISTS idx_files_extension ON files(extension);";
 
-    
     execSQL(db, create_index_table);
+    execSQL(db, create_metadata_table);
     execSQL(db, create_indexes);
 }
 

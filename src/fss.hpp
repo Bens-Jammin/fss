@@ -67,3 +67,4 @@ void insertFileEntries(const std::vector<FileEntry>& files, string DBPath);
 void updateEntries(string DBPath, const std::vector<FileEntry>& entries);
 std::time_t getMTime(const std::filesystem::path& p);
 string DBPath(string root);
+std::int64_t epoch_now();
