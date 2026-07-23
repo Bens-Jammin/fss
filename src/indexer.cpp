@@ -84,9 +84,11 @@ FSS_RESULT FSSIndexer::build_index() {
     if (!fs::exists(this->root)) {
         return result(FSS_STATUS::CrawlErr, "Root path does not exist: " + this->root);
     }
+    
 
     std::vector<FileEntry> files;
     try {
+
         FSCrawl(this->root, files);
         insertFileEntries(files, this->dbPath);
     } catch (const FSSException& e) {

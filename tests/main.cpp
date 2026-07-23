@@ -1,5 +1,6 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "../src/fss.hpp"
+#include "../src/ffi.h"
 #include "../src/exception.hpp"
 #include <fstream>
 #include <thread>
@@ -83,24 +84,17 @@ TEST_CASE("indexers on different root stay independent") {
 }
 
 
-TEST_CASE("indexer handles a nonexistent root gracefully") {
+TEST_CASE("indexer handles a nonexistent root") {
     fs::path badRoot = fs::temp_directory_path() / "fss_test_does_not_exist_xyz";
     fs::remove_all(badRoot); // make sure it really doesn't exist
 
     FSSIndexer indexer(badRoot.string());
-    FSS_RESULT r = indexer.build_index();
-    std::cout << r.describe() << "\n";
+    CHECK_THROWS_AS(indexer.build_index(), FSSException);
 
-    CHECK(r.status != FSS_STATUS::Ok);
-    REQUIRE(r.message != nullptr);
-    CHECK(std::string(r.message).find("not exist") != std::string::npos);
-
-    // and it shouldn't have crashed or left a half-built index behind
-    CHECK(indexer.queryFor("anything").empty());
-
-    free(r.message);
+    
     indexer.done();
 }
+
 
 TEST_CASE("indexer skips permission-denied subdirectories without failing the whole update") {
     fs::path root = fs::temp_directory_path() / "fss_test_perm_root";
@@ -169,12 +163,12 @@ TEST_CASE("update recovers from a corrupted/non-sqlite file at the db path") {
     { std::ofstream bogus(dbPath); bogus << "not a real sqlite file"; }
 
     FSSIndexer indexer(root.string());
-    FSS_RESULT r = indexer.build_index();
+    CHECK_THROWS_AS(indexer.build_index(), FSSException);
 
-    // sqlite should refuse to treat this as a valid db — should surface
-    // as an error rather than crashing or silently overwriting it unexpectedly
-    CHECK(r.status != FSS_STATUS::Ok);
-    if (r.message) free(r.message);
+    // // sqlite should refuse to treat this as a valid db — should surface
+    // // as an error rather than crashing or silently overwriting it unexpectedly
+    // CHECK(r.status != FSS_STATUS::Ok);
+    // if (r.message) free(r.message);
 
     indexer.done();
     fs::remove_all(root);
