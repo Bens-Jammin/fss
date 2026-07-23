@@ -8,6 +8,7 @@ use crate::ui_utils::search_for;
 pub enum Mode {
     Editing,
     Browsing,
+    Configuring,    // settings
 }
 
 pub enum AppSignal {

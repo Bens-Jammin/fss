@@ -5,6 +5,17 @@ use edtui::{EditorState, Lines};
 
 use crate::app::{App, AppSignal, Banner, BannerType, Mode};
 
+pub(crate) fn handle_configuring_key(
+    key: crossterm::event::KeyEvent,
+    app: &mut App,
+) -> io::Result<()> {
+    if key.code == KeyCode::Esc {
+        app.mode = Mode::Browsing;
+    }
+    Ok(())
+}
+
+
 pub(crate) fn handle_editing_key(
     key: crossterm::event::KeyEvent,
     app: &mut App,
@@ -30,6 +41,9 @@ pub(crate) fn handle_browsing_key(
     match key.code {
         KeyCode::Char('x') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             return Ok(AppSignal::Quit);
+        }
+        KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            app.mode = Mode::Configuring;
         }
         KeyCode::Down => {
             let current = app.list_state.selected().unwrap_or(0);

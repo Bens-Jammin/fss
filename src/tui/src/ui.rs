@@ -12,11 +12,45 @@ use crate::app::{App, BannerType, Mode};
 
 pub fn ui(f: &mut Frame, app: &mut App) {
     match app.mode {
-        Mode::Editing => draw_editing(f, app),
-        Mode::Browsing => draw_browsing(f, app),
+        Mode::Configuring => draw_settings(f, app),
+        Mode::Editing     => draw_editing(f, app),
+        Mode::Browsing    => draw_browsing(f, app),
     }
 
     draw_banner(f, app);
+}
+
+
+fn draw_settings(f: &mut Frame, app: &mut App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(0),    // settings content
+            Constraint::Length(1), // controls
+        ])
+        .split(f.area());
+
+
+    // Settings Content with Border
+    let settings_block = Block::default()
+        .title(" Configuration ") // Optional section title
+        .borders(Borders::ALL);
+
+    let settings_content = Paragraph::new(vec![
+        Line::from(format!("Root path: <sample root path>")),
+        Line::from(format!("Theme: <sample theme>")),
+    ])
+    .block(settings_block);
+
+    // Fixed variable name: settings_content (was `text`)
+    f.render_widget(settings_content, chunks[0]);
+
+    // Controls
+    let controls = Paragraph::new(Line::from(vec![
+        Span::styled("Esc", Style::default().fg(Color::Yellow)),
+        Span::raw(": Quit   "),
+    ]));
+    f.render_widget(controls, chunks[1]);
 }
 
 fn draw_editing(f: &mut Frame, app: &mut App) {
@@ -111,6 +145,8 @@ fn draw_browsing(f: &mut Frame, app: &mut App) {
     let controls = Paragraph::new(Line::from(vec![
         Span::styled("Enter", Style::default().fg(Color::Yellow)),
         Span::raw(": Search   "),
+        Span::styled("Ctrl+Q", Style::default().fg(Color::Yellow)),
+        Span::raw(": Settings   "),
         Span::styled("Ctrl+X", Style::default().fg(Color::Yellow)),
         Span::raw(": Quit   "),
         Span::styled("Up/Down arrow", Style::default().fg(Color::Yellow)),

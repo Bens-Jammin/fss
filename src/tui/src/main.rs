@@ -7,7 +7,7 @@ mod ui;
 mod ui_utils;
 
 use app::{App, AppSignal, Mode};
-use keys::{handle_browsing_key, handle_editing_key};
+use keys::{handle_browsing_key, handle_editing_key, handle_configuring_key};
 use ui::ui;
 
 use crossterm::{
@@ -56,6 +56,7 @@ where
             }
 
             match app.mode {
+                Mode::Configuring => handle_configuring_key(key, &mut app)?,
                 Mode::Editing => handle_editing_key(key, &mut app)?,
                 Mode::Browsing => {
                     if let AppSignal::Quit = handle_browsing_key(key, &mut app)? {
