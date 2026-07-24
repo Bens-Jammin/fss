@@ -12,6 +12,7 @@
 #include "stdlib.h"
 #include <sqlite3.h>
 #include "exception.hpp"
+#include <unordered_map>
 
 
 using string = std::string;
@@ -48,6 +49,7 @@ class FSSIndexer {
         FSS_RESULT build_index();
         FSS_RESULT update();
         void done();
+        std::unordered_map<string, string> metadata();
         std::vector<string> queryExtension(const char* name);
         std::vector<string> queryFor(const char* name);
         std::vector<string> queryLike(const char* name);
@@ -65,6 +67,7 @@ bool FSCrawl(string rootDir, std::vector<FileEntry>& entries);
 void crawl(string rootDir, bool debug);
 void initDB(string root, string DBPath);
 void update_metadata_table(string root);
+std::unordered_map<string, string> fetch_metadata_for(string root);
 void insertFileEntries(const std::vector<FileEntry>& files, string DBPath);
 void updateEntries(string DBPath, const std::vector<FileEntry>& entries);
 std::time_t getMTime(const std::filesystem::path& p);

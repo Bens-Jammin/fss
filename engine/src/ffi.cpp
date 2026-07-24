@@ -52,6 +52,24 @@ extern "C" char* fss_query_extension(const char* ext) {
     return output;
 }
 
+
+extern "C" char* fetch_index_metadata(const char* root) {
+    FSSIndexer indexer = FSSIndexer(root);
+    std::unordered_map<string, string> metadata = indexer.metadata();
+
+    std::ostringstream oss;
+    for (const auto& [key, value] : metadata) {
+        oss << key << '=' << value << '\n';
+    }
+    std::string joined = oss.str();
+
+    char* output = static_cast<char*>(std::malloc(joined.size() + 1));
+    if (!output) return nullptr;
+    std::memcpy(output, joined.c_str(), joined.size() + 1);
+    return output;
+}
+
+
 extern "C" void fss_free(char* str) {
     std::free(str);
 }

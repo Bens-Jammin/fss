@@ -375,3 +375,8 @@ std::vector<string> FSSIndexer::queryLike(const char* name) {
 }
 
 std::vector<string> FSSIndexer::queryFuzzy(string name) { return {""}; }
+
+
+std::unordered_map<string, string> FSSIndexer::metadata() {
+    return fetch_metadata_for(this->root);
+}

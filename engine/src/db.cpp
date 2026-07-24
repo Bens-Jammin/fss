@@ -276,3 +276,36 @@ void update_metadata_table(string root) {
     sqlite3_finalize(stmt);
     sqlite3_close(db);
 }
+
+
+std::unordered_map<string, string> fetch_metadata_for(string root) {
+
+    string path = DBPath(root);
+    sqlite3* db = openDB(path);
+
+    string query = 
+        "SELECT root,last_update" 
+        "FROM index_metadata"
+        "WHERE id = 1"
+    ;
+
+    std::unordered_map<std::string, std::string> result;
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error(sqlite3_errmsg(db));
+    }
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        int colCount = sqlite3_column_count(stmt);
+        for (int i = 0; i < colCount; ++i) {
+            const char* colName = sqlite3_column_name(stmt, i);
+            const unsigned char* val = sqlite3_column_text(stmt, i);
+            result[colName] = val ? reinterpret_cast<const char*>(val) : "";
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    return result;
+}
