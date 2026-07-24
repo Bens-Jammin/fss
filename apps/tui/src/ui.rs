@@ -79,7 +79,7 @@ fn draw_browsing(f: &mut Frame, app: &mut App) {
 
     // --- top area: show values derived from the last submitted line ---
     let items: Vec<ListItem> = if app.results.is_empty() {
-        vec![ListItem::new("No Results")]
+        vec![ListItem::new(format!("No Results for '{}'.", &app.input))]
     } else {
         app.results
             .iter()
