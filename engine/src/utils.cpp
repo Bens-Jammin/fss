@@ -24,7 +24,7 @@ std::string DBPath(std::string root) {
         std::cerr << "FAIL! Cannot make an index tree for a database file (root = " << root << ")\n";
     }
     size_t hash = std::hash<std::string>{}(root);
-    fs::path databasesPath = fs::absolute( fs::path("./databases") );
+    fs::path databasesPath = fs::absolute( fs::path("../../databases") );
     fs::create_directories(databasesPath);
     std::string path =  (databasesPath / ("fss_" + std::to_string(hash) + ".db")).string();
     return path;

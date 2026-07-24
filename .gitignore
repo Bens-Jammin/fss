@@ -1,5 +1,6 @@
 *.exe
 databases/*.db
-src/cli/target
-src/cli/Cargo.lock
+tui/target
+tui/Cargo.lock
+
 build

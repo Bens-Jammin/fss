@@ -3,35 +3,38 @@ TARGET = fss.exe
 # Static library that the Rust frontend links against
 LIB = libfssbackend.a
 # Rust
-RUST_BIN_NAME = fss_cli
-RUST_DIR = src/cli
+RUST_BIN_NAME = fss_tui
+RUST_DIR = tui
 CARGO = cargo
 
+CPP_DIR   = engine/src
+TESTS_DIR = engine/tests
+
 CXX = g++
-CXXFLAGS = -std=c++20 -Wall -Wextra -Isrc
+CXXFLAGS = -std=c++20 -Wall -Wextra -I$(CPP_DIR)
 LDLIBS = -lsqlite3
 
 BUILD_DIR = build
 
-SRC_CPPS = $(wildcard src/*.cpp)
-APP_OBJS = $(patsubst src/%.cpp,$(BUILD_DIR)/%.o,$(SRC_CPPS))
+SRC_CPPS = $(wildcard $(CPP_DIR)/*.cpp)
+APP_OBJS = $(patsubst $(CPP_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRC_CPPS))
 LIB_OBJS = $(filter-out $(BUILD_DIR)/main.o, $(APP_OBJS))
 
-TEST_SRCS = $(wildcard tests/*.cpp)
+TEST_SRCS = $(wildcard $(TESTS_DIR)/*.cpp)
 
-TARGET_PATH = $(BUILD_DIR)/$(TARGET)
-LIB_PATH = $(BUILD_DIR)/$(LIB)
+TARGET_PATH      = $(BUILD_DIR)/$(TARGET)
+LIB_PATH         = $(BUILD_DIR)/$(LIB)
 TEST_RUNNER_PATH = $(BUILD_DIR)/test_runner.exe
 
 ifeq ($(OS),Windows_NT)
-    RUN_CMD = .\$(TARGET_PATH)
+    RUN_CMD  = .\$(TARGET_PATH)
     RUST_BIN = $(RUST_DIR)\target\release\$(RUST_BIN_NAME).exe
 else
-    RUN_CMD = ./$(TARGET_PATH)
+    RUN_CMD  = ./$(TARGET_PATH)
     RUST_BIN = $(RUST_DIR)/target/release/$(RUST_BIN_NAME)
 endif
 
-CLEAN_CMD = rm -rf $(BUILD_DIR) nul
+CLEAN_CMD = rm -rf $(BUILD_DIR)
 
 .PHONY: all build test run clean lib rust stack run-stack help
 
@@ -43,17 +46,17 @@ $(TARGET_PATH): $(APP_OBJS)
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(APP_OBJS) -o $@ $(LDLIBS)
 
-test: build $(TEST_RUNNER_PATH)
+test: $(TEST_RUNNER_PATH)
 	./$(TEST_RUNNER_PATH) -s
 
 $(TEST_RUNNER_PATH): $(LIB_OBJS) $(TEST_SRCS)
 	@mkdir -p $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(LIB_OBJS) $(TEST_SRCS) -o $@ $(LDLIBS)
+	$(CXX) $(CXXFLAGS) -I$(TESTS_DIR) $(LIB_OBJS) $(TEST_SRCS) -o $@ $(LDLIBS)
 
 run: build
 	$(RUN_CMD)
 
-$(BUILD_DIR)/%.o: src/%.cpp
+$(BUILD_DIR)/%.o: $(CPP_DIR)/%.cpp
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -78,6 +81,7 @@ clean:
 help:
 	@echo "make            - build, test, run C++ standalone (default)"
 	@echo "make build      - build C++ standalone binary only"
+	@echo "make test       - build and run the doctest test runner"
 	@echo "make lib        - build libfssbackend.a only"
 	@echo "make stack      - build backend lib + Rust frontend"
 	@echo "make run-stack  - build and run the full Rust+C++ stack"
