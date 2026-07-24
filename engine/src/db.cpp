@@ -284,9 +284,9 @@ std::unordered_map<string, string> fetch_metadata_for(string root) {
     sqlite3* db = openDB(path);
 
     string query = 
-        "SELECT root,last_update" 
-        "FROM index_metadata"
-        "WHERE id = 1"
+        "SELECT root,last_update " 
+        "FROM index_metadata "
+        "WHERE id = 1 "
     ;
 
     std::unordered_map<std::string, std::string> result;

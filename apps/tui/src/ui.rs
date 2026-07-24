@@ -6,6 +6,7 @@ use ratatui::{
     Frame,
 };
 
+use fss_sys::fetch_index_metadata;
 use edtui::{EditorTheme, EditorView, LineNumbers};
 
 use crate::app::{App, BannerType, Mode};
@@ -37,10 +38,20 @@ fn draw_settings(f: &mut Frame, app: &mut App) {
         .title(" Configuration ") // Optional section title
         .borders(Borders::ALL);
 
-    let settings_content = Paragraph::new(vec![
-        Line::from(format!("Root path: <sample root path>")),
-        Line::from(format!("Theme: <sample theme>")),
-    ])
+
+    let metadata = fetch_index_metadata();
+    let dbg = metadata
+        .iter()
+        .map(|(k, v)| format!("{k}: {v}"))
+        .collect::<Vec<_>>()
+        .join("  |  ");
+
+    let mut settings = vec![];
+    for (k, v) in metadata.iter() {
+        settings.push( Line::from(format!("{k}: {v}")) );
+    }
+
+    let settings_content = Paragraph::new(settings)
     .block(settings_block);
 
     // Fixed variable name: settings_content (was `text`)
