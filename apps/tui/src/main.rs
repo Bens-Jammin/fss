@@ -1,7 +1,6 @@
 use std::io;
 
 mod app;
-mod fss;
 mod keys;
 mod ui;
 mod ui_utils;

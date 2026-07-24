@@ -1,6 +1,8 @@
 *.exe
 databases/*.db
-tui/target
-tui/Cargo.lock
+
+# Rust workspace (apps/sys, apps/tui, apps/cli)
+apps/target
+apps/Cargo.lock
 
 build

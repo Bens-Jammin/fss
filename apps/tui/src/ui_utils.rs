@@ -1,4 +1,4 @@
-use crate::fss::{query_for, query_like, query_extension};
+use fss_sys::{query_for, query_like, query_extension};
 use std::path::PathBuf;
 
 

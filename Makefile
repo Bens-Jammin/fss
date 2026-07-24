@@ -2,9 +2,11 @@
 TARGET = fss.exe
 # Static library that the Rust frontend links against
 LIB = libfssbackend.a
-# Rust
-RUST_BIN_NAME = fss_tui
-RUST_DIR = tui
+
+# Rust workspace
+APPS_DIR = apps
+TUI_BIN_NAME = fss_tui
+CLI_BIN_NAME = fss_cli
 CARGO = cargo
 
 CPP_DIR   = engine/src
@@ -28,15 +30,17 @@ TEST_RUNNER_PATH = $(BUILD_DIR)/test_runner.exe
 
 ifeq ($(OS),Windows_NT)
     RUN_CMD  = .\$(TARGET_PATH)
-    RUST_BIN = $(RUST_DIR)\target\release\$(RUST_BIN_NAME).exe
+    TUI_BIN  = $(APPS_DIR)\target\release\$(TUI_BIN_NAME).exe
+    CLI_BIN  = $(APPS_DIR)\target\release\$(CLI_BIN_NAME).exe
 else
     RUN_CMD  = ./$(TARGET_PATH)
-    RUST_BIN = $(RUST_DIR)/target/release/$(RUST_BIN_NAME)
+    TUI_BIN  = $(APPS_DIR)/target/release/$(TUI_BIN_NAME)
+    CLI_BIN  = $(APPS_DIR)/target/release/$(CLI_BIN_NAME)
 endif
 
 CLEAN_CMD = rm -rf $(BUILD_DIR)
 
-.PHONY: all build test run clean lib rust stack run-stack help
+.PHONY: all build test run clean lib rust-tui rust-cli tui cli run-tui run-cli help
 
 all: build test run
 
@@ -66,23 +70,32 @@ $(LIB_PATH): $(LIB_OBJS)
 	@mkdir -p $(BUILD_DIR)
 	ar rcs $@ $(LIB_OBJS)
 
-rust: $(LIB_PATH)
-	cd $(RUST_DIR) && $(CARGO) build --release
+# Build individual frontends (sys build.rs pulls in the C++ lib itself)
+rust-tui: lib
+	cd $(APPS_DIR) && $(CARGO) build --release -p $(TUI_BIN_NAME)
 
-stack: rust
+rust-cli: lib
+	cd $(APPS_DIR) && $(CARGO) build --release -p $(CLI_BIN_NAME)
 
-run-stack: stack
-	$(RUST_BIN)
+tui: rust-tui
+run-tui: tui
+	$(TUI_BIN)
+
+cli: rust-cli
+run-cli: cli
+	$(CLI_BIN)
 
 clean:
 	$(CLEAN_CMD)
-	cd $(RUST_DIR) && $(CARGO) clean
+	cd $(APPS_DIR) && $(CARGO) clean
 
 help:
 	@echo "make            - build, test, run C++ standalone (default)"
 	@echo "make build      - build C++ standalone binary only"
 	@echo "make test       - build and run the doctest test runner"
 	@echo "make lib        - build libfssbackend.a only"
-	@echo "make stack      - build backend lib + Rust frontend"
-	@echo "make run-stack  - build and run the full Rust+C++ stack"
+	@echo "make tui        - build the Rust TUI frontend"
+	@echo "make run-tui    - build and run the Rust TUI frontend"
+	@echo "make cli        - build the Rust CLI frontend"
+	@echo "make run-cli    - build and run the Rust CLI frontend"
 	@echo "make clean      - clean C++ and Rust build artifacts"

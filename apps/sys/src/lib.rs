@@ -10,7 +10,7 @@ extern "C" {
 }
 
 
-pub(crate) fn query_for(name: &str) -> Vec<String> {
+pub fn query_for(name: &str) -> Vec<String> {
     let c_name = CString::new(name).unwrap();
     unsafe {
         let raw = fss_query_for(c_name.as_ptr());
@@ -22,7 +22,7 @@ pub(crate) fn query_for(name: &str) -> Vec<String> {
 }
 
 
-pub(crate) fn query_like(pattern: &str) -> Vec<String> {
+pub fn query_like(pattern: &str) -> Vec<String> {
     let c_pattern = CString::new(pattern).unwrap();
     unsafe {
         let raw = fss_query_like(c_pattern.as_ptr());
@@ -33,7 +33,7 @@ pub(crate) fn query_like(pattern: &str) -> Vec<String> {
     }
 }
 
-pub(crate) fn query_extension(ext: &str) -> Vec<String> {
+pub fn query_extension(ext: &str) -> Vec<String> {
     let c_ext = CString::new(ext).unwrap();
     unsafe {
         let raw = fss_query_extension(c_ext.as_ptr());

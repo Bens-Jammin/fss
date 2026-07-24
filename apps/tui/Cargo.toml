@@ -7,3 +7,4 @@ edition = "2021"
 ratatui = "0.30"
 crossterm = "0.29"
 edtui = "0.11"
+fss-sys = { path = "../sys" }
