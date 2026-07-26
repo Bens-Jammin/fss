@@ -103,7 +103,7 @@ void initDB(string root, string DBPath) {
         "CREATE TABLE IF NOT EXISTS index_metadata ("
         "   id              INTEGER NOT NULL DEFAULT 1 CHECK (id = 1),"
         "   root            TEXT NOT NULL,"
-        "   last_update     INTEGER NOT NULL,"
+        "   last_update     TEXT NOT NULL,"
         "   CONSTRAINT pk_metadata PRIMARY KEY (id)"
         ")";
 
@@ -115,7 +115,7 @@ void initDB(string root, string DBPath) {
         
     const char* metadata =
         "INSERT INTO index_metadata (root, last_update) "
-        "VALUES (?, ?) "
+        "VALUES (?, datetime('now', 'localtime')) "
         // "ON CONFLICT (id) DO UPDATE SET "
         // "   root = excluded.root, "             // excluded are the values that tried but failed to be inserted
         // "   last_update = excluded.last_update";
@@ -131,7 +131,6 @@ void initDB(string root, string DBPath) {
     }
 
     sqlite3_bind_text(stmt, 1, root.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int64(stmt, 2, epoch_now());
     
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         sqlite3_finalize(stmt);
@@ -259,7 +258,7 @@ void update_metadata_table(string root) {
     sqlite3_stmt* stmt = nullptr;
     const char* metadata =
         "UPDATE index_metadata "
-        "SET root = ?, last_update = ? "
+        "SET root = ?, last_update = datetime('now', 'localtime') "
         "WHERE id = 1";
 
     if (sqlite3_prepare_v2(db, metadata, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -267,7 +266,6 @@ void update_metadata_table(string root) {
     }
 
     sqlite3_bind_text(stmt, 1, root.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int64(stmt, 2, epoch_now());
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
     sqlite3_finalize(stmt);

@@ -22,9 +22,30 @@ pub fn ui(f: &mut Frame, app: &mut App) {
 }
 
 
+// Explicit display order for index metadata. HashMap iteration order is
+// randomized per-run, so we drive the display off this list instead and
+// look each key up in the map.
+const INDEX_CONFIG_ORDER: &[&str] = &[
+    "root",
+    "path",
+    "total_files",
+    "total_dirs",
+    "db_size",
+    "last_update",
+    // add/reorder keys here as needed
+];
+
+// Placeholder list of TUI settings categories. Not wired up to real state
+// yet -- just rendered as labels so the section exists.
+const TUI_SETTINGS: &[&str] = &[
+    "Results Blacklist",
+    "Keybindings",
+    "Colour Theme (TUI)",
+    "Colour Theme (Editor)",
+];
 
 fn draw_settings(f: &mut Frame, app: &mut App) {
-    let chunks = Layout::default()
+    let outer = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Min(0),    // settings content
@@ -32,39 +53,52 @@ fn draw_settings(f: &mut Frame, app: &mut App) {
         ])
         .split(f.area());
 
+    // Split settings content into two stacked sections: index config on top,
+    // TUI settings below.
+    let sections = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(outer[0]);
 
-    // Settings Content with Border
-    let settings_block = Block::default()
-        .title(" Configuration ") // Optional section title
+    // --- Index Config ---
+    let metadata = fetch_index_metadata();
+
+    let index_lines: Vec<Line> = INDEX_CONFIG_ORDER
+        .iter()
+        .filter_map(|key| {
+            metadata
+                .get(*key)
+                .map(|v| Line::from(format!("{key}: {v}")))
+        })
+        .collect();
+
+    let index_config_block = Block::default()
+        .title(" Index Config ")
         .borders(Borders::ALL);
 
+    let index_config_content = Paragraph::new(index_lines).block(index_config_block);
+    f.render_widget(index_config_content, sections[0]);
 
-    let metadata = fetch_index_metadata();
-    let dbg = metadata
+    // --- TUI Settings ---
+    let tui_lines: Vec<Line> = TUI_SETTINGS
         .iter()
-        .map(|(k, v)| format!("{k}: {v}"))
-        .collect::<Vec<_>>()
-        .join("  |  ");
+        .map(|name| Line::from(format!("{name}")))
+        .collect();
 
-    let mut settings = vec![];
-    for (k, v) in metadata.iter() {
-        settings.push( Line::from(format!("{k}: {v}")) );
-    }
+    let tui_settings_block = Block::default()
+        .title(" TUI Settings ")
+        .borders(Borders::ALL);
 
-    let settings_content = Paragraph::new(settings)
-    .block(settings_block);
-
-    // Fixed variable name: settings_content (was `text`)
-    f.render_widget(settings_content, chunks[0]);
+    let tui_settings_content = Paragraph::new(tui_lines).block(tui_settings_block);
+    f.render_widget(tui_settings_content, sections[1]);
 
     // Controls
     let controls = Paragraph::new(Line::from(vec![
         Span::styled("Esc", Style::default().fg(Color::Yellow)),
         Span::raw(": Quit   "),
     ]));
-    f.render_widget(controls, chunks[1]);
+    f.render_widget(controls, outer[1]);
 }
-
 
 
 fn draw_editing(f: &mut Frame, app: &mut App) {
