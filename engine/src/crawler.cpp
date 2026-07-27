@@ -35,21 +35,26 @@ int scan(string rootDir, bool debug) {
     return scan(rootDir, 0, debug);
 }
 
-void FSCrawl(string rootDir, int parentID, int& nextID, std::vector<FileEntry>& entries) {
-    
+void FSCrawl(string rootDir, int parentID, int& nextID, std::vector<FileEntry>& entries,
+             const IgnoreRules& ignoreRules) {
+
     std::error_code err;
     fs::path root = rootDir;
 
-
     if (!fs::exists(root, err)) {
         if ( err && parentID == -1 ) {
-            // root failed bad, nothing to index at all
             throw FSSException(
-                FSS_STATUS::CrawlErr, 
+                FSS_STATUS::CrawlErr,
                 "Root path does not exist or is inaccessible: " + rootDir + " (" + err.message() + ")"
             );
         }
         return; // vanished mid-crawl. skip
+    }
+
+    // Never skip the crawl root itself, even if it happens to match a
+    // blacklist rule - only skip descendants.
+    if (parentID != -1 && ignoreRules.shouldSkip(root)) {
+        return;
     }
 
     bool isDir = fs::is_directory(root, err);
@@ -57,15 +62,13 @@ void FSCrawl(string rootDir, int parentID, int& nextID, std::vector<FileEntry>& 
         return; // unable to determine type. skip
     }
 
-    
     std::time_t mtime;
     try {
         mtime = getMTime(root);
     } catch (const std::exception&) {
         mtime = 0;
     }
-    
-    
+
     int id = nextID++;
     entries.push_back({
         id,
@@ -84,18 +87,25 @@ void FSCrawl(string rootDir, int parentID, int& nextID, std::vector<FileEntry>& 
         }
 
         for (; it != fs::directory_iterator(); it.increment(err) ) {
-            if ( err ) { 
+            if ( err ) {
                 break; // iteration failed (entry disappeared ?) stop but keep what we have
             }
 
-            FSCrawl(it->path().string(), id, nextID, entries);
+            FSCrawl(it->path().string(), id, nextID, entries, ignoreRules);
         }
     }
 }
 
 bool FSCrawl(string rootDir, std::vector<FileEntry>& entries) {
+    IgnoreRules defaultRules;
     int nextID = 0;
-    FSCrawl(rootDir, -1, nextID, entries);
+    FSCrawl(rootDir, -1, nextID, entries, defaultRules);
+    return true;
+}
+
+bool FSCrawl(string rootDir, std::vector<FileEntry>& entries, const IgnoreRules& ignoreRules) {
+    int nextID = 0;
+    FSCrawl(rootDir, -1, nextID, entries, ignoreRules);
     return true;
 }
 

@@ -4,6 +4,7 @@
 #include <chrono>
 #include <vector>
 #include <cstring>
+#include <unordered_set>
 
 namespace fs = std::filesystem;
 
@@ -26,6 +27,8 @@ FSS_RESULT result(FSS_STATUS status, const std::string& msg) {
 }
 
 FSSIndexer::FSSIndexer() : root{TEST_ROOT_DIRECTORY}, dbPath{DBPath(root)}, debug{false} {
+    ignoreRules.loadOrCreate( configPath(root) );
+    
     bool existed = DBExists(dbPath);
     if (!existed) initDB(root, dbPath);
 
@@ -42,6 +45,8 @@ FSSIndexer::FSSIndexer() : root{TEST_ROOT_DIRECTORY}, dbPath{DBPath(root)}, debu
 }
 
 FSSIndexer::FSSIndexer(string root) : root{root}, dbPath{DBPath(root)}, debug{false} {
+    ignoreRules.loadOrCreate( configPath(root) );
+    
     bool existed = DBExists(dbPath);
     if (!existed) initDB(root, dbPath);
 
@@ -58,6 +63,8 @@ FSSIndexer::FSSIndexer(string root) : root{root}, dbPath{DBPath(root)}, debug{fa
 }
 
 FSSIndexer::FSSIndexer(string root, bool debug) : root{root}, dbPath{DBPath(root)}, debug{debug} {
+    ignoreRules.loadOrCreate( configPath(root) );
+
     bool existed = DBExists(dbPath);
     if (!existed) initDB(root, dbPath);
 
@@ -77,6 +84,7 @@ FSSIndexer::FSSIndexer(string root, bool debug) : root{root}, dbPath{DBPath(root
 /// @brief cleanup all artifacts relating to the index. **PERMANENTLY DELETES THE DATABASE!!**
 void FSSIndexer::done() {
     clearDB(this->root);
+    fs::remove( configPath(this->root) );
 }
 
 FSS_RESULT FSSIndexer::build_index() {
@@ -89,7 +97,7 @@ FSS_RESULT FSSIndexer::build_index() {
     std::vector<FileEntry> files;
     try {
 
-        FSCrawl(this->root, files);
+        FSCrawl(this->root, files, this->ignoreRules);
         insertFileEntries(files, this->dbPath);
         update_metadata_table(this->root);
     } catch (const FSSException& e) {

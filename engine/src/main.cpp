@@ -18,6 +18,6 @@ int main() {
         std::cout << key << ": " << value << "\n";
     }
 
-    indexer.done();
+    // indexer.done();
     return 0;
 }

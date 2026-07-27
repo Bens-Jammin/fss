@@ -13,12 +13,13 @@
 #include <sqlite3.h>
 #include "exception.hpp"
 #include <unordered_map>
-
+#include "config.hpp"
 
 using string = std::string;
 namespace fs = std::filesystem;
 
 const string TEST_ROOT_DIRECTORY = "C:\\Users\\benem\\LocalProjects\\fss";
+
 
 struct ChildEntry {
     int64_t id;
@@ -42,6 +43,7 @@ class FSSIndexer {
         string root;
         string dbPath;
         bool debug;
+        IgnoreRules ignoreRules;
     public:
         FSSIndexer();
         FSSIndexer(string root);
@@ -64,6 +66,7 @@ void execSQL(sqlite3* db, const char* command);
 int execSQLWithSTDOUT(sqlite3* db, const char* command);
 int scan(string rootDir, bool debug);
 bool FSCrawl(string rootDir, std::vector<FileEntry>& entries);
+bool FSCrawl(string rootDir, std::vector<FileEntry>& entries, const IgnoreRules& ignoreRules);
 void crawl(string rootDir, bool debug);
 void initDB(string root, string DBPath);
 void update_metadata_table(string root);
@@ -72,3 +75,4 @@ void insertFileEntries(const std::vector<FileEntry>& files, string DBPath);
 void updateEntries(string DBPath, const std::vector<FileEntry>& entries);
 std::time_t getMTime(const std::filesystem::path& p);
 string DBPath(string root);
+string configPath(std::string root);

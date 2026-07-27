@@ -205,3 +205,107 @@ TEST_CASE("check a metadata table is created when an index is made") {
     auto last_update = queryInt(db, "SELECT last_update FROM index_metadata WHERE id = 1");
     CHECK(last_update > 0);
 }
+
+
+TEST_CASE("indexer auto-creates an ignore config file on first construction") {
+    fs::path root = fs::temp_directory_path() / "fss_test_autocreate_root";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    { std::ofstream out(root / "file1.txt"); out << "hello\n"; }
+
+    // Use an isolated config path so this test doesn't touch the real
+    // user config, and so repeated test runs start from a clean slate.
+    fs::path configDir = fs::temp_directory_path() / "fss_test_autocreate_config";
+    fs::remove_all(configDir);
+    fs::path configPath = configDir / "ignore.conf";
+
+    REQUIRE_FALSE(fs::exists(configPath));
+
+    IgnoreRules rules;
+    rules.loadOrCreate(configPath);
+
+    CHECK(fs::exists(configPath));
+
+    std::ifstream f(configPath);
+    std::stringstream contents;
+    contents << f.rdbuf();
+    CHECK(contents.str().find("[basename]") != std::string::npos);
+    CHECK(contents.str().find(".git") != std::string::npos);
+
+    fs::remove_all(root);
+    fs::remove_all(configDir);
+}
+
+TEST_CASE("build_index skips blacklisted basename directories entirely") {
+    fs::path root = fs::temp_directory_path() / "fss_test_blacklist_root";
+    fs::path gitDir = root / ".git";
+    fs::path srcDir = root / "src";
+
+    fs::remove_all(root);
+    fs::create_directories(gitDir);
+    fs::create_directories(srcDir);
+
+    { std::ofstream out(gitDir / "HEAD"); out << "ref: refs/heads/main\n"; }
+    { std::ofstream out(gitDir / "config"); out << "[core]\n"; }
+    { std::ofstream out(srcDir / "main.cpp"); out << "int main(){}\n"; }
+
+    FSSIndexer indexer(root.string());
+    FSS_RESULT r = indexer.build_index();
+    CHECK(r.status == FSS_STATUS::Ok);
+    if (r.message) free(r.message);
+
+    // .git and everything inside it should be absent from the index
+    CHECK(indexer.queryFor("HEAD").empty());
+    CHECK(indexer.queryFor("config").empty());
+
+    // src/ and its contents should still be indexed normally
+    CHECK(indexer.queryFor("main.cpp").size() == 1);
+
+    indexer.done();
+    fs::remove_all(root);
+}
+
+TEST_CASE("build_index does not recurse into blacklisted directories (no wasted work)") {
+    fs::path root = fs::temp_directory_path() / "fss_test_blacklist_recursion_root";
+    fs::path nodeModules = root / "node_modules";
+    fs::path nested = nodeModules / "some_pkg" / "deeply" / "nested";
+
+    fs::remove_all(root);
+    fs::create_directories(nested);
+    { std::ofstream out(nested / "index.js"); out << "module.exports = {};\n"; }
+    { std::ofstream out(root / "app.js"); out << "require('./node_modules');\n"; }
+
+    FSSIndexer indexer(root.string());
+    FSS_RESULT r = indexer.build_index();
+    CHECK(r.status == FSS_STATUS::Ok);
+    if (r.message) free(r.message);
+
+    // nothing under node_modules should appear, however deeply nested
+    CHECK(indexer.queryFor("index.js").empty());
+
+    // the top-level file outside node_modules is still indexed
+    CHECK(indexer.queryFor("app.js").size() == 1);
+
+    indexer.done();
+    fs::remove_all(root);
+}
+
+TEST_CASE("blacklisting a root's own name does not exclude the root itself") {
+    // Edge case: if a user indexes a directory that happens to be named
+    // "build" (a default-blacklisted basename), the root itself should
+    // still be indexed - only descendants named "build" get skipped.
+    fs::path root = fs::temp_directory_path() / "build";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    { std::ofstream out(root / "output.txt"); out << "hello\n"; }
+
+    FSSIndexer indexer(root.string());
+    FSS_RESULT r = indexer.build_index();
+    CHECK(r.status == FSS_STATUS::Ok);
+    if (r.message) free(r.message);
+
+    CHECK(indexer.queryFor("output.txt").size() == 1);
+
+    indexer.done();
+    fs::remove_all(root);
+}

@@ -125,20 +125,17 @@ void initDB(string root, string DBPath) {
     execSQL(db, create_metadata_table);
     execSQL(db, create_indexes);
 
-    sqlite3_stmt* stmt = nullptr;
+    sqlite3_stmt* stmt = nullptr;    
     if (sqlite3_prepare_v2(db, metadata, -1, &stmt, nullptr) != SQLITE_OK) {
         throw FSSException(FSS_STATUS::SqlQueryFail, "Could not compile SQL statement to update index metadata.");
     }
+    StmtGuard stmtGuard(stmt);
 
     sqlite3_bind_text(stmt, 1, root.c_str(), -1, SQLITE_TRANSIENT);
     
     if (sqlite3_step(stmt) != SQLITE_DONE) {
-        sqlite3_finalize(stmt);
-        sqlite3_close(db);
         throw FSSException(FSS_STATUS::SqlQueryFail, "Could not initialize metadata for index.");
     }
-    sqlite3_finalize(stmt);
-    sqlite3_close(db);
 }
 
 
