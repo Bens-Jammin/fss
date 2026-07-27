@@ -7,6 +7,7 @@ int main() {
     std::cout << "hello from main!\n";
     
     FSSIndexer indexer = FSSIndexer(TEST_ROOT_DIRECTORY);
+    indexer.update();
     auto results = indexer.queryExtension(".cpp");
     for (auto i : results) {
         std::cout << i << "\n";

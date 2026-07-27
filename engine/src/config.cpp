@@ -113,13 +113,20 @@ void IgnoreRules::writeDefaultConfigFile(const std::filesystem::path& configPath
 
 
 bool IgnoreRules::shouldSkip(const std::filesystem::path& entryPath) const {
-    if (basenames_.count(entryPath.filename().string()) > 0) {
+
+    const std::string normalized = entryPath.lexically_normal().string();
+    if (absolutePaths_.count(normalized) > 0) {
         return true;
     }
 
-    const std::string normalized =
-        entryPath.lexically_normal().string();
-    return absolutePaths_.count(normalized) > 0;
+    // check every path component, not just the final one, so this is
+    // correct even if called on a path nested inside an ignored dir
+    for (const auto& part : entryPath) {
+        if (basenames_.count(part.string()) > 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void IgnoreRules::addBasename(std::string name) {

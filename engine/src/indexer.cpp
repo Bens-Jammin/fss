@@ -80,6 +80,12 @@ FSSIndexer::FSSIndexer(string root, bool debug) : root{root}, dbPath{DBPath(root
     }
 }
 
+void FSSIndexer::reloadIgnoreRules() {
+    IgnoreRules fresh;
+    fresh.loadOrCreate(configPath(this->root));
+    this->ignoreRules = fresh;
+}
+
 
 /// @brief cleanup all artifacts relating to the index. **PERMANENTLY DELETES THE DATABASE!!**
 void FSSIndexer::done() {
@@ -170,13 +176,18 @@ int64_t currentFileMTime(string path) {
     return currentMTime;
 } 
 
-
-void updateDir(string root, std::unordered_map<string, int64_t>& mtimes, std::vector<string>& pathBuf) {
+void updateDir(string root, std::unordered_map<string, int64_t>& mtimes,
+               std::vector<string>& pathBuf, const IgnoreRules& ignoreRules) {
 
     if ( !fs::exists(root) || !fs::is_directory(root) )
         return;
 
     for (const auto& entry : fs::directory_iterator( root )) {
+        if (ignoreRules.shouldSkip(entry.path())) {
+            continue;  // skip the entry entirely - and, since we `continue`
+                       // rather than recurse, its whole subtree is pruned too
+        }
+
         string entryPath = entry.path().string();
 
         if (fs::is_regular_file(entry.status())) {
@@ -187,7 +198,7 @@ void updateDir(string root, std::unordered_map<string, int64_t>& mtimes, std::ve
             int64_t currentMTime = currentFileMTime( entryPath );
             auto it = mtimes.find(entryPath);
             if (it == mtimes.end() || it->second != currentMTime) {
-                updateDir(entryPath, mtimes, pathBuf);
+                updateDir(entryPath, mtimes, pathBuf, ignoreRules);
             } 
         }
     }
@@ -220,7 +231,7 @@ FSS_RESULT FSSIndexer::update() {
         }
     
         std::vector<string> pathBuffer;
-        updateDir(root, mtimes, pathBuffer);
+        updateDir(root, mtimes, pathBuffer, this->ignoreRules);
     
         // We also need each entry's parent id, since files table is a self-referencing
         // tree via parent_id. Build a path->id lookup once, up front, rather than

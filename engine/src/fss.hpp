@@ -51,6 +51,7 @@ class FSSIndexer {
         FSS_RESULT build_index();
         FSS_RESULT update();
         void done();
+        void reloadIgnoreRules();
         std::unordered_map<string, string> metadata();
         std::vector<string> queryExtension(const char* name);
         std::vector<string> queryFor(const char* name);
