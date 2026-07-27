@@ -47,11 +47,11 @@ class FSSIndexer {
     public:
         FSSIndexer();
         FSSIndexer(string root);
-        FSSIndexer(string root, bool debug);
         FSS_RESULT build_index();
         FSS_RESULT update();
         void done();
         void reloadIgnoreRules();
+        FSS_RESULT reloadConfigAndReindex();
         std::unordered_map<string, string> metadata();
         std::vector<string> queryExtension(const char* name);
         std::vector<string> queryFor(const char* name);
@@ -71,6 +71,7 @@ bool FSCrawl(string rootDir, std::vector<FileEntry>& entries, const IgnoreRules&
 void crawl(string rootDir, bool debug);
 void initDB(string root, string DBPath);
 void update_metadata_table(string root);
+void pruneBlacklistedEntries(sqlite3* db, const IgnoreRules& ignoreRules);
 std::unordered_map<string, string> fetch_metadata_for(string root);
 void insertFileEntries(const std::vector<FileEntry>& files, string DBPath);
 void updateEntries(string DBPath, const std::vector<FileEntry>& entries);

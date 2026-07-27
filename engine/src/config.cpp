@@ -10,7 +10,7 @@
 namespace {
 
 const std::unordered_set<std::string> DEFAULT_BASENAME_BLACKLIST = {
-    ".git", "build", "target", ".venv", "__pycache__",
+    ".git", "build", "target", ".venv", "__pycache__", "node_modules",
 };
 const std::unordered_set<std::string> DEFAULT_ABS_PATH_BLACKLIST = {};
 

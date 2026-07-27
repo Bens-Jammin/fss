@@ -273,6 +273,55 @@ void update_metadata_table(string root) {
 }
 
 
+void pruneBlacklistedEntries(sqlite3* db, const IgnoreRules& ignoreRules) {
+    const char* selectAll = "SELECT path FROM files;";
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, selectAll, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw FSSException(FSS_STATUS::SqlQueryFail, "Failed to prepare prune select");
+    }
+    StmtGuard stmtGuard(stmt);
+
+    std::vector<std::string> allPaths;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const unsigned char* pathText = sqlite3_column_text(stmt, 0);
+        if (pathText) allPaths.push_back(reinterpret_cast<const char*>(pathText));
+    }
+
+    // directories whose own basename/abspath matches a rule
+    std::vector<std::string> blacklistedDirs;
+    for (const auto& path : allPaths) {
+        if (ignoreRules.shouldSkip(path)) {
+            blacklistedDirs.push_back(path);
+        }
+    }
+    if (blacklistedDirs.empty()) return;
+
+    // anything blacklisted directly, or nested under a blacklisted dir
+    std::vector<std::string> toDelete;
+    for (const auto& path : allPaths) {
+        bool remove = false;
+        for (const auto& dir : blacklistedDirs) {
+            if (path == dir || path.rfind(dir + "\\", 0) == 0) {  // "\\" -> use fs::path::preferred_separator
+                remove = true;
+                break;
+            }
+        }
+        if (remove) toDelete.push_back(path);
+    }
+
+    execSQL(db, "BEGIN TRANSACTION;");
+    const char* deleteExact = "DELETE FROM files WHERE path = ?;";
+    sqlite3_stmt* delStmt = nullptr;
+    sqlite3_prepare_v2(db, deleteExact, -1, &delStmt, nullptr);
+    StmtGuard g(delStmt);
+    for (const auto& path : toDelete) {
+        sqlite3_bind_text(delStmt, 1, path.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(delStmt);
+        sqlite3_reset(delStmt);
+    }
+    execSQL(db, "COMMIT;");
+}
+
 std::unordered_map<string, string> fetch_metadata_for(string root) {
 
     string path = DBPath(root);
@@ -304,3 +353,5 @@ std::unordered_map<string, string> fetch_metadata_for(string root) {
     sqlite3_close(db);
     return result;
 }
+
+

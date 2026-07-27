@@ -33,6 +33,7 @@ FSSIndexer::FSSIndexer() : root{TEST_ROOT_DIRECTORY}, dbPath{DBPath(root)}, debu
     if (!existed) initDB(root, dbPath);
 
     sqlite3* db = openDB(dbPath);
+    pruneBlacklistedEntries(db, ignoreRules); 
     bool needsBuild = !existed || DBisEmpty(db);
     sqlite3_close(db);
 
@@ -51,24 +52,7 @@ FSSIndexer::FSSIndexer(string root) : root{root}, dbPath{DBPath(root)}, debug{fa
     if (!existed) initDB(root, dbPath);
 
     sqlite3* db = openDB(dbPath);
-    bool needsBuild = !existed || DBisEmpty(db);
-    sqlite3_close(db);
-
-    if (needsBuild) {
-        FSS_RESULT res = this->build_index();
-        if (res.status != FSS_STATUS::Ok) {
-            throw FSSException(res.status, res.message);
-        }
-    }
-}
-
-FSSIndexer::FSSIndexer(string root, bool debug) : root{root}, dbPath{DBPath(root)}, debug{debug} {
-    ignoreRules.loadOrCreate( configPath(root) );
-
-    bool existed = DBExists(dbPath);
-    if (!existed) initDB(root, dbPath);
-
-    sqlite3* db = openDB(dbPath);
+    pruneBlacklistedEntries(db, ignoreRules); 
     bool needsBuild = !existed || DBisEmpty(db);
     sqlite3_close(db);
 
@@ -116,6 +100,21 @@ FSS_RESULT FSSIndexer::build_index() {
     return result( FSS_STATUS::Ok, "" );
 }
 
+
+FSS_RESULT FSSIndexer::reloadConfigAndReindex() {
+    this->ignoreRules.loadOrCreate(configPath(this->root));
+
+    sqlite3* db = openDB(this->dbPath);
+    try {
+        pruneBlacklistedEntries(db, this->ignoreRules);
+    } catch (...) {
+        sqlite3_close(db);
+        throw;
+    }
+    sqlite3_close(db);
+
+    return this->update();  // now walk the tree with the fresh rules applied
+}
 
 std::unordered_map<string, int64_t> getIDs(sqlite3* db) {
     const char* query = "SELECT path, id FROM files WHERE is_dir = TRUE";
