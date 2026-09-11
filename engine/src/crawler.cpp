@@ -35,18 +35,16 @@ int scan(string rootDir, bool debug) {
     return scan(rootDir, 0, debug);
 }
 
-void FSCrawl(string rootDir, int parentID, int& nextID, std::vector<FileEntry>& entries) {
+void FSCrawl(fs::path root, int parentID, int& nextID, std::vector<FileEntry>& entries) {
     
     std::error_code err;
-    fs::path root = rootDir;
-
 
     if (!fs::exists(root, err)) {
         if ( err && parentID == -1 ) {
             // root failed bad, nothing to index at all
             throw FSSException(
                 FSS_STATUS::CrawlErr, 
-                "Root path does not exist or is inaccessible: " + rootDir + " (" + err.message() + ")"
+                "Root path does not exist or is inaccessible: " + root.string() + " (" + err.message() + ")"
             );
         }
         return; // vanished mid-crawl. skip
@@ -88,12 +86,12 @@ void FSCrawl(string rootDir, int parentID, int& nextID, std::vector<FileEntry>& 
                 break; // iteration failed (entry disappeared ?) stop but keep what we have
             }
 
-            FSCrawl(it->path().string(), id, nextID, entries);
+            FSCrawl(it->path(), id, nextID, entries);
         }
     }
 }
 
-bool FSCrawl(string rootDir, std::vector<FileEntry>& entries) {
+bool FSCrawl(fs::path rootDir, std::vector<FileEntry>& entries) {
     int nextID = 0;
     FSCrawl(rootDir, -1, nextID, entries);
     return true;

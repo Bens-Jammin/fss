@@ -91,8 +91,9 @@ FSS_RESULT FSSIndexer::build_index() {
 
         using clock = std::chrono::steady_clock;
 
+        fs::path root = this->root;
         auto t0 = clock::now();
-        FSCrawl(this->root, files);
+        FSCrawl(root, files);
         auto t1 = clock::now();
 
         insertFileEntries(files, this->dbPath);
