@@ -89,9 +89,32 @@ FSS_RESULT FSSIndexer::build_index() {
     std::vector<FileEntry> files;
     try {
 
+        using clock = std::chrono::steady_clock;
+
+        auto t0 = clock::now();
         FSCrawl(this->root, files);
+        auto t1 = clock::now();
+
         insertFileEntries(files, this->dbPath);
+        auto t2 = clock::now();
+
         update_metadata_table(this->root);
+        auto t3 = clock::now();
+
+        auto ms = [](auto start, auto end) {
+            return std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        };
+
+        auto fstime = ms(t0, t1);
+        auto inserttime = ms(t1, t2);
+        auto metatime = ms(t2,t3);
+        auto totaltime = ms(t0,t3);
+
+        std::cerr << "FSCrawl:                " << fstime     << " ms (" << (fstime     * 100)/totaltime << "%)\n" ;
+        std::cerr << "insertFileEntries:      " << inserttime << " ms (" << (inserttime * 100)/totaltime << "%)\n" ;
+        std::cerr << "update_metadata_table:  " << metatime   << " ms (" << (metatime   * 100)/totaltime << "%)\n" ;
+        std::cerr << "Total:                  " << totaltime  << " ms (" << (totaltime  * 100)/totaltime << "%)\n" ;
+    
     } catch (const FSSException& e) {
         return result(e.status, e.what());
     } catch (const std::exception& e) {
