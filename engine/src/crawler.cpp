@@ -5,38 +5,6 @@ using string = std::string;
 namespace fs = std::filesystem;
 
 
-
-/// @brief scans through the file tree to determine the number of elements
-/// @param rootDir 
-/// @return the number of total fs entries crawled (directories and files)
-int scan(string rootDir, int count=0, bool debug=false) {
-
-    fs::path root = rootDir;
-
-    if ( !fs::exists(root) ) {
-        std::cerr << "[FSS ERROR] CRAWLER --" << rootDir << " doesnt exist.\n";
-        return count;
-    }
-
-    if (!fs::is_directory(root) ) {
-        if (debug) std::cout << "[FSS DEBUG] CRAWLER -- found file '" << rootDir << "'\n";
-        return ++count;
-    }
-
-    int dirCount = 0;
-    for (const auto& entry : fs::directory_iterator(root) ) {
-        string entryName = entry.path().string();
-        dirCount += scan(entryName, count, debug);
-    }
-    if (debug) std::cout << "[FSS DEBUG] CRAWLER -- Dir '" << rootDir << "' had " << dirCount << " entries.\n";
-    return dirCount;
-}
-
-// api method
-int scan(string rootDir, bool debug) {
-    return scan(rootDir, 0, debug);
-}
-
 void FSCrawl(fs::directory_entry node, int parentID, int& nextID, std::vector<FileEntry>& entries) {
     
     std::error_code err;
@@ -112,27 +80,4 @@ bool FSCrawl(fs::path rootDir, std::vector<FileEntry>& entries) {
     
     FSCrawl(rootEntry, -1, nextID, entries);
     return true;
-}
-
-
-
-void crawl(string rootDir, bool debug) {
-
-    fs::path root = rootDir;
-
-    if ( !fs::exists(root) ) {
-        if (debug) std::cout << "[FSS DEBUG] CRAWLER ERROR --" << rootDir << " doesnt exist.\n";
-        return;
-    }
-
-    if (!fs::is_directory(root) ) {
-        if (debug) std::cout << "[FSS DEBUG] CRAWLER MESSAGE -- found file '" << rootDir << "'\n";
-        return;
-    }
-
-    for (const auto& entry : fs::directory_iterator(root) ) {
-        string entryName = entry.path().string();
-        crawl(entryName, debug);
-    }
-
 }
