@@ -1,4 +1,6 @@
 #include "fss.hpp"
+#include <chrono>
+
 using string = std::string;
 namespace fs = std::filesystem;
 
@@ -35,34 +37,39 @@ int scan(string rootDir, bool debug) {
     return scan(rootDir, 0, debug);
 }
 
-void FSCrawl(fs::path root, int parentID, int& nextID, std::vector<FileEntry>& entries) {
+void FSCrawl(fs::directory_entry node, int parentID, int& nextID, std::vector<FileEntry>& entries) {
     
     std::error_code err;
+    const fs::path& root = node.path();
 
-    if (!fs::exists(root, err)) {
-        if ( err && parentID == -1 ) {
-            // root failed bad, nothing to index at all
+    fs::file_status status = node.status(err); // file metadata
+
+    if (err) {
+        if (parentID == -1) {
             throw FSSException(
-                FSS_STATUS::CrawlErr, 
+                FSS_STATUS::CrawlErr,
                 "Root path does not exist or is inaccessible: " + root.string() + " (" + err.message() + ")"
             );
         }
-        return; // vanished mid-crawl. skip
+        return; // vanished mid-crawl, skip
     }
+    if (!fs::exists(status)) {
+        if (parentID == -1) {
+            throw FSSException(FSS_STATUS::CrawlErr, "Root path does not exist: " + root.string());
+        }
+        return;
+    }
+
 
     bool isDir = fs::is_directory(root, err);
-    if (err) {
-        return; // unable to determine type. skip
+        
+    std::error_code mtimeErr;
+    auto ftime = node.last_write_time(mtimeErr);
+    std::time_t mtime = 0;
+    if (!mtimeErr) {
+        auto sctp = std::chrono::clock_cast<std::chrono::system_clock>(ftime);
+        mtime = std::chrono::system_clock::to_time_t(sctp);
     }
-
-    
-    std::time_t mtime;
-    try {
-        mtime = getMTime(root);
-    } catch (const std::exception&) {
-        mtime = 0;
-    }
-    
     
     int id = nextID++;
     entries.push_back({
@@ -86,14 +93,24 @@ void FSCrawl(fs::path root, int parentID, int& nextID, std::vector<FileEntry>& e
                 break; // iteration failed (entry disappeared ?) stop but keep what we have
             }
 
-            FSCrawl(it->path(), id, nextID, entries);
+            FSCrawl(*it, id, nextID, entries);
         }
     }
 }
 
 bool FSCrawl(fs::path rootDir, std::vector<FileEntry>& entries) {
     int nextID = 0;
-    FSCrawl(rootDir, -1, nextID, entries);
+    std::error_code err;
+    fs::directory_entry rootEntry(rootDir, err);
+    
+    if (err) {
+        throw FSSException(
+            FSS_STATUS::CrawlErr,
+            "Root path does not exist or is inaccessible: " + rootDir.string() + " (" + err.message() + ")"
+        );
+    }
+    
+    FSCrawl(rootEntry, -1, nextID, entries);
     return true;
 }
 
