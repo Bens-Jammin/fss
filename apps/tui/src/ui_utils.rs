@@ -27,8 +27,6 @@ pub(crate) fn search_for(text: &str) -> Vec<PathBuf> {
     for r in ext_match_results {
         list_items.push( PathBuf::from( r ));
     }
-    if !list_items.is_empty() { return list_items; }
-
 
     list_items
 }
