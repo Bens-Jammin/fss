@@ -39,11 +39,10 @@ struct FileEntry {
 
 class FSSIndexer {
     private:
+        bool debug;
         string root;
         string dbPath;
-        bool debug;
     public:
-        FSSIndexer();
         FSSIndexer(string root);
         FSSIndexer(string root, bool debug);
         FSS_RESULT build_index();

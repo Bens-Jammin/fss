@@ -25,21 +25,6 @@ FSS_RESULT result(FSS_STATUS status, const std::string& msg) {
     return { status, buf };
 }
 
-FSSIndexer::FSSIndexer() : root{TEST_ROOT_DIRECTORY}, dbPath{DBPath(root)}, debug{false} {
-    bool existed = DBExists(dbPath);
-    if (!existed) initDB(root, dbPath);
-
-    sqlite3* db = openDB(dbPath);
-    bool needsBuild = !existed || DBisEmpty(db);
-    sqlite3_close(db);
-
-    if (needsBuild) {
-        FSS_RESULT res = this->build_index();
-        if (res.status != FSS_STATUS::Ok) {
-            throw FSSException(res.status, res.message);
-        }
-    }
-}
 
 FSSIndexer::FSSIndexer(string root) : root{root}, dbPath{DBPath(root)}, debug{false} {
     bool existed = DBExists(dbPath);

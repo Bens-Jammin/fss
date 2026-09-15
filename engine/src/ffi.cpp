@@ -16,9 +16,14 @@ char* to_owned_cstr(const std::string& s) {
 } // namespace
 
 
-extern "C" char* fss_query_for(const char* name) noexcept {
+extern "C" void fss_init(const char* root) noexcept {
+    FSSIndexer indexer(root);
+}
+
+
+extern "C" char* fss_query_for(const char* root, const char* name) noexcept {
     try {
-        FSSIndexer indexer = FSSIndexer();
+        FSSIndexer indexer(root);
         indexer.update();   // TEMP!
         auto results = indexer.queryFor(name);
 
@@ -31,9 +36,9 @@ extern "C" char* fss_query_for(const char* name) noexcept {
 }
 
 
-extern "C" char* fss_query_like(const char* pattern) noexcept {
+extern "C" char* fss_query_like(const char* root, const char* pattern) noexcept {
     try {
-        FSSIndexer indexer = FSSIndexer();
+        FSSIndexer indexer(root);
         indexer.update();   // TEMP!
         auto results = indexer.queryLike(pattern);
 
@@ -46,9 +51,9 @@ extern "C" char* fss_query_like(const char* pattern) noexcept {
 }
 
 
-extern "C" char* fss_query_extension(const char* ext) noexcept {
+extern "C" char* fss_query_extension(const char* root, const char* ext) noexcept {
     try {
-        FSSIndexer indexer = FSSIndexer();
+        FSSIndexer indexer(root);
         indexer.update();   // TEMP!
         auto results = indexer.queryExtension(ext);
 
@@ -61,9 +66,9 @@ extern "C" char* fss_query_extension(const char* ext) noexcept {
 }
 
 
-extern "C" char* fetch_index_metadata(/* const char* root */) noexcept {
+extern "C" char* fetch_index_metadata(const char* root) noexcept {
     try {
-        FSSIndexer indexer = FSSIndexer();
+        FSSIndexer indexer(root);
         std::unordered_map<std::string, std::string> metadata = indexer.metadata();
 
         std::ostringstream oss;

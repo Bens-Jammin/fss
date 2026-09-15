@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use edtui::{EditorEventHandler, EditorState};
 use ratatui::widgets::ListState;
 
-use crate::ui_utils::search_for;
+use fss_sys::{search_for, init};
 
 pub enum Mode {
     Editing,
@@ -50,6 +50,7 @@ impl App {
             editing_path: None,
             banner: None,
         }
+
     }
 
     pub fn submit(&mut self) {
