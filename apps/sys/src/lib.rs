@@ -117,6 +117,5 @@ pub fn search_for(root: &str, text: &str) -> Vec<PathBuf> {
     for r in ext_match_results {
         list_items.push( PathBuf::from( r ));
     }
-    println!("list items:\n{:#?}", list_items);
     list_items
 }

@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-
+use std::fs::canonicalize;
 use clap::{Parser, Subcommand};
 use fss_sys::{search_for, init_index};
 
@@ -38,20 +38,19 @@ enum Commands {
         #[arg(short, long, value_name = "PATH", default_value = ".")]
         root: PathBuf,
     },
-    /// Check the index for consistency issues
-    Check {
-        /// Root directory to check
+    Find {
+        /// Root directory to index (defaults to the current directory)
         #[arg(short, long, value_name = "PATH", default_value = ".")]
         root: PathBuf,
 
-        /// Print detailed per-entry results
-        #[arg(short, long)]
-        verbose: bool,
+        /// Pattern to search for in the index tree. Can be a file/dir name or file extension
+        #[arg(short, long, value_name = "PATTERN")]
+        pattern: String,
 
-        /// Attempt to repair issues found during the check
-        #[arg(long)]
-        fix: bool,
-    },
+        /// Return the file paths as absolute paths
+        #[arg(short, long, action = clap::ArgAction::SetTrue)]
+        absolute: bool,
+    }
 }
 
 fn main() {
@@ -67,9 +66,30 @@ fn main() {
         Commands::State { root } => {
             println!("state: root={:?}", root);
         }
-        // TODO: validate index / DB consistency
-        Commands::Check { root, verbose, fix } => {
-            println!("check: root={:?}, verbose={}, fix={}", root, verbose, fix);
+        Commands::Find { root, pattern, absolute } => {
+            if pattern.trim().is_empty() { println!("Cannot pattern match on an empty pattern."); }
+            // TODO: what if this root isnt indexed?
+
+            let results = search_for(root.to_str().unwrap(), &pattern.to_string());
+            if results.is_empty() {
+                println!("0 Results found.");
+            }
+            println!("Found {} result(s):", results.len());
+            if absolute {
+                for r in results {
+                    println!("- {}", display_path(&r.canonicalize().unwrap()));
+                }
+            } else {
+                for r in results {
+                    println!("- {}", r.display());
+                }
+            }
         }
     }
+}
+
+
+fn display_path(p: &std::path::Path) -> String {
+    let s = p.to_string_lossy();
+    s.strip_prefix(r"\\?\").unwrap_or(&s).to_string()
 }
