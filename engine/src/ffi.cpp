@@ -21,6 +21,12 @@ extern "C" void fss_init(const char* root) noexcept {
 }
 
 
+extern "C" void fss_update(const char* root) noexcept {
+    FSSIndexer indexer(root);
+    indexer.update();
+}
+
+
 extern "C" char* fss_query_for(const char* root, const char* name) noexcept {
     try {
         FSSIndexer indexer(root);

@@ -19,17 +19,27 @@ extern "C" {
 
 
 pub fn init_index(root: &PathBuf) {
-
     match root.to_str() {
         Some(r) => {
             let c_root = CString::new( r ).unwrap();
             unsafe { fss_init(c_root.as_ptr()); }
         },
-        None => eprintln!("Unable to handle root ({}) of type &PathBuf to string", root.display()),
+        None => eprintln!("Unable to convert root ({}) of type &PathBuf to string", root.display()),
     }
 
 }
 
+
+pub fn update_index(root: &PathBuf) {
+    match root.to_str() {
+        Some(r) => {
+            let c_root = CString::new( r ).unwrap();
+            unsafe { fss_update(c_root.as_ptr()); }
+        },
+        None => eprintln!("Unable to convert root ({}) of type &PathBuf to string", root.display()),
+    }
+
+}
 
 pub fn query_for(root: &str, name: &str) -> Vec<String> {
     let c_name = CString::new(name).unwrap();

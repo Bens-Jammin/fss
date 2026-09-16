@@ -38,6 +38,7 @@ enum Commands {
         #[arg(short, long, value_name = "PATH", default_value = ".")]
         root: PathBuf,
     },
+    /// Query the index for matching cases
     Find {
         /// Root directory to index (defaults to the current directory)
         #[arg(short, long, value_name = "PATH", default_value = ".")]
@@ -50,7 +51,21 @@ enum Commands {
         /// Return the file paths as absolute paths
         #[arg(short, long, action = clap::ArgAction::SetTrue)]
         absolute: bool,
-    }
+    },
+    /// Refresh the index
+    Update {
+        /// Root directory to index (defaults to the current directory)
+        #[arg(short, long, value_name = "PATH", default_value = ".")]
+        root: PathBuf
+    },
+    /// Sets a default index for which to perform all commands on
+    Connect {
+        /// Root directory to index (defaults to the current directory)
+        #[arg(short, long, value_name = "PATH", default_value = ".")]
+        root: PathBuf
+    },
+    /// Disconnects from an index if currently connected
+    Disconnect {},
 }
 
 fn main() {
@@ -64,7 +79,9 @@ fn main() {
         }
         // TODO: call fss_sys::fetch_index_metadata() and print it
         Commands::State { root } => {
-            println!("state: root={:?}", root);
+            println!("{}", root.canonicalize().unwrap().display());
+            let displayable_abs_root: String = display_path(&root.canonicalize().unwrap());
+            println!("state: root={:?}", displayable_abs_root);
         }
         Commands::Find { root, pattern, absolute } => {
             if pattern.trim().is_empty() { println!("Cannot pattern match on an empty pattern."); }
@@ -85,8 +102,13 @@ fn main() {
                 }
             }
         }
+        Commands::Update  { root } => { fss_update(root); },
+        Commands::Connect { root } => { panic!("Not yet implemented!"); },
+        Commands::Disconnect {}    => { panic!("Not yet implemented!"); },
+
     }
 }
+
 
 
 fn display_path(p: &std::path::Path) -> String {
