@@ -11,7 +11,8 @@
 
 namespace fs = std::filesystem;
 
-const fs::path TEST_DIRECTORY = fs::absolute( fs::path("../") );
+
+const string TEST_DIRECTORY = fs::absolute( fs::path("../") ).string();
 
 long long queryInt(sqlite3* db, const char* sql) {
     sqlite3_stmt* stmt = nullptr;
@@ -34,7 +35,7 @@ std::string queryText(sqlite3* db, const char* sql) {
 
 
 TEST_CASE("indexer finds files by extension") {
-    FSSIndexer indexer = FSSIndexer();
+    FSSIndexer indexer = FSSIndexer(TEST_DIRECTORY);
     indexer.build_index();
 
     CHECK(indexer.queryExtension(".cpp").size() > 5);
@@ -46,7 +47,7 @@ TEST_CASE("indexer finds files by extension") {
 
 TEST_CASE("indexer finds files by exact name") {
     
-    FSSIndexer indexer = FSSIndexer();
+    FSSIndexer indexer = FSSIndexer(TEST_DIRECTORY);
     indexer.build_index();
     
     CHECK(indexer.queryFor("doctest.h").size() == 1);

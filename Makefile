@@ -13,7 +13,7 @@ CPP_DIR   = engine/src
 TESTS_DIR = engine/tests
 
 CXX = g++
-CXXFLAGS = -std=c++20 -Wall -Wextra -I$(CPP_DIR)
+CXXFLAGS = -std=c++20 -Wall -Wextra -I$(CPP_DIR) -Iengine/include
 LDLIBS = -lsqlite3
 
 BUILD_DIR = build

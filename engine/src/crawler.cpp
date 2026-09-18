@@ -1,10 +1,10 @@
-#include "fss.hpp"
+#include "fss/fss.hpp"
 #include <chrono>
 
 using string = std::string;
 namespace fs = std::filesystem;
 
-
+/// Internal function , not to be called outside
 void FSCrawl(fs::directory_entry node, int parentID, int& nextID, std::vector<FileEntry>& entries) {
     
     std::error_code err;
