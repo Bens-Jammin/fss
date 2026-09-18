@@ -1,5 +1,5 @@
 #include "ffi.h"
-#include "fss.hpp"
+#include "fss/fss.hpp"
 #include <cstring>
 #include <cstdlib>
 #include <sstream>
@@ -20,7 +20,7 @@ extern "C" char* fss_query_for(const char* name) noexcept {
     try {
         FSSIndexer indexer = FSSIndexer();
         indexer.update();   // TEMP!
-        auto results = indexer.queryFor(name);
+        auto results = indexer.queryExact(name);
 
         std::ostringstream oss;
         for (auto& r : results) oss << r << '\n';
@@ -35,7 +35,7 @@ extern "C" char* fss_query_like(const char* pattern) noexcept {
     try {
         FSSIndexer indexer = FSSIndexer();
         indexer.update();   // TEMP!
-        auto results = indexer.queryLike(pattern);
+        auto results = indexer.querySubstr(pattern);
 
         std::ostringstream oss;
         for (auto& r : results) oss << r << '\n';

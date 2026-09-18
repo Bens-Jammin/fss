@@ -1,7 +1,23 @@
 #pragma once
+
 #include <stdexcept>
 #include <string>
 #include <ostream>
+#include <ctime>
+#include <cstdint>
+
+using string = std::string;
+
+struct FileEntry {
+    int id;
+    int parentID;
+    string path;
+    string filename;
+    string extension;
+    bool isDir;
+    std::time_t mtime;
+};
+
 
 enum class FSS_STATUS : int {
     Ok = 0,
@@ -18,6 +34,21 @@ struct FSSException : std::runtime_error {
         : std::runtime_error(msg), status(s) {}
 };
 
+inline const char* stos(FSS_STATUS status);
+
+struct FSS_RESULT {
+    FSS_STATUS status;
+    string message;
+
+    bool ok() const {
+        return status == FSS_STATUS::Ok;
+    }
+
+    // convenience for logging/tests
+    std::string describe() const {
+        return stos(status) + (message.length() == 0 ? std::string(" — ") + message : "");
+    }
+};
 
 
 /// @brief (fss) status to string
@@ -36,20 +67,7 @@ inline const char* stos(FSS_STATUS status) {
 }
 
 
-struct FSS_RESULT {
-    FSS_STATUS status;
-    char* message;
-
-    bool ok() const {
-        return status == FSS_STATUS::Ok;
-    }
-
-    // convenience for logging/tests
-    std::string describe() const {
-        return stos(status) + (message ? std::string(" — ") + message : "");
-    }
-};
-
 inline std::ostream& operator<<(std::ostream& os, FSS_STATUS status) {
     return os << stos(status);
 }
+
