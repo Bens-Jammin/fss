@@ -1,7 +1,8 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "../src/fss.hpp"
+#include "../include/fss/fss.hpp"
+#include "../src/utils.hpp"
 #include "../src/ffi.h"
-#include "../src/exception.hpp"
+#include "../src/db.hpp"
 #include <fstream>
 #include <thread>
 #include <chrono>
@@ -50,10 +51,10 @@ TEST_CASE("indexer finds files by exact name") {
     FSSIndexer indexer = FSSIndexer(TEST_DIRECTORY);
     indexer.build_index();
     
-    CHECK(indexer.queryFor("doctest.h").size() == 1);
-    CHECK(indexer.queryFor("main.cpp").size() == 2);
-    CHECK(indexer.queryFor("Makefile").size() == 1);
-    CHECK(indexer.queryFor("main.js").empty());
+    CHECK(indexer.queryExact("doctest.h").size() == 1);
+    CHECK(indexer.queryExact("main.cpp").size() == 3);
+    CHECK(indexer.queryExact("Makefile").size() == 2);
+    CHECK(indexer.queryExact("main.js").empty());
     
     indexer.done();
 }
@@ -135,8 +136,6 @@ TEST_CASE("indexer skips permission-denied subdirectories without failing the wh
     // the file we could reach is indexed...
     CHECK(indexer.queryExtension(".marker").size() == 1);
     
-    if (r.message) free(r.message);
-
     // restore perms so cleanup can actually delete the directory
     fs::permissions(lockedDir, fs::perms::owner_all, fs::perm_options::replace);
     indexer.done();
@@ -152,15 +151,14 @@ TEST_CASE("update is a no-op when nothing changed since last index") {
     FSSIndexer indexer(root.string());
     FSS_RESULT first = indexer.build_index();
     CHECK(first.status == FSS_STATUS::Ok);
-    if (first.message) free(first.message);
 
     size_t countAfterFirst = indexer.queryExtension(".txt").size();
 
     // run again immediately, nothing on disk changed
     FSS_RESULT second = indexer.update();
     CHECK(second.status == FSS_STATUS::Ok);
-    if (second.message) free(second.message);
 
+    
     // index contents should be identical, not duplicated or emptied
     CHECK(indexer.queryExtension(".txt").size() == countAfterFirst);
 

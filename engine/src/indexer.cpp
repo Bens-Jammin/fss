@@ -1,5 +1,4 @@
 // api to interact with the db and crawler
-#include "fss/fss.hpp"
 #include <unordered_map>
 #include <chrono>
 #include <vector>
@@ -11,24 +10,6 @@
 #include "crawler.hpp"
 
 namespace fs = std::filesystem;
-
-
-
-bool DBisEmpty(sqlite3* db) {
-    const char* q = "SELECT COUNT(*) FROM files;";
-    sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(db, q, -1, &stmt, nullptr) != SQLITE_OK) return true;
-    int64_t count = 0;
-    if (sqlite3_step(stmt) == SQLITE_ROW) count = sqlite3_column_int64(stmt, 0);
-    sqlite3_finalize(stmt);
-    return count == 0;
-}
-
-FSS_RESULT result(FSS_STATUS status, const std::string& msg) {
-    char* buf = static_cast<char*>(std::malloc(msg.size() + 1));
-    std::memcpy(buf, msg.c_str(), msg.size() + 1);
-    return { status, buf };
-}
 
 
 FSSIndexer::FSSIndexer(string root) : root{root}, dbPath{DBPath(root)}, debug{false} {

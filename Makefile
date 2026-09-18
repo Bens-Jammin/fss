@@ -11,6 +11,7 @@ CARGO = cargo
 
 CPP_DIR   = engine/src
 TESTS_DIR = engine/tests
+BENCH_DIR = engine/benchmark
 
 CXX = g++
 CXXFLAGS = -std=c++20 -Wall -Wextra -I$(CPP_DIR) -Iengine/include
@@ -27,20 +28,25 @@ TEST_SRCS = $(wildcard $(TESTS_DIR)/*.cpp)
 TARGET_PATH      = $(BUILD_DIR)/$(TARGET)
 LIB_PATH         = $(BUILD_DIR)/$(LIB)
 TEST_RUNNER_PATH = $(BUILD_DIR)/test_runner.exe
+BENCH_PATH       = $(BUILD_DIR)/benchmark.exe
+
+BENCH_SRCS = $(wildcard $(BENCH_DIR)/*.cpp)
 
 ifeq ($(OS),Windows_NT)
-    RUN_CMD  = .\$(TARGET_PATH)
-    TUI_BIN  = $(APPS_DIR)\target\release\$(TUI_BIN_NAME).exe
-    CLI_BIN  = $(APPS_DIR)\target\release\$(CLI_BIN_NAME).exe
+    RUN_CMD      = .\$(TARGET_PATH)
+    RUN_BENCH_CMD = .\$(BENCH_PATH)
+    TUI_BIN      = $(APPS_DIR)\target\release\$(TUI_BIN_NAME).exe
+    CLI_BIN      = $(APPS_DIR)\target\release\$(CLI_BIN_NAME).exe
 else
-    RUN_CMD  = ./$(TARGET_PATH)
-    TUI_BIN  = $(APPS_DIR)/target/release/$(TUI_BIN_NAME)
-    CLI_BIN  = $(APPS_DIR)/target/release/$(CLI_BIN_NAME)
+    RUN_CMD      = ./$(TARGET_PATH)
+    RUN_BENCH_CMD = ./$(BENCH_PATH)
+    TUI_BIN      = $(APPS_DIR)/target/release/$(TUI_BIN_NAME)
+    CLI_BIN      = $(APPS_DIR)/target/release/$(CLI_BIN_NAME)
 endif
 
 CLEAN_CMD = rm -rf $(BUILD_DIR)
 
-.PHONY: all build test run clean lib rust-tui rust-cli tui cli run-tui run-cli help
+.PHONY: all build test run clean lib bench run-bench rust-tui rust-cli tui cli run-tui run-cli help
 
 all: build test run
 
@@ -70,6 +76,15 @@ $(LIB_PATH): $(LIB_OBJS)
 	@mkdir -p $(BUILD_DIR)
 	ar rcs $@ $(LIB_OBJS)
 
+bench: $(BENCH_PATH)
+
+$(BENCH_PATH): $(LIB_OBJS) $(BENCH_SRCS)
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(LIB_OBJS) $(BENCH_SRCS) -o $@ $(LDLIBS)
+
+run-bench: bench
+	$(RUN_BENCH_CMD)
+
 # Build individual frontends (sys build.rs pulls in the C++ lib itself)
 rust-tui: lib
 	cd $(APPS_DIR) && $(CARGO) build --release -p $(TUI_BIN_NAME)
@@ -94,6 +109,8 @@ help:
 	@echo "make build      - build C++ standalone binary only"
 	@echo "make test       - build and run the doctest test runner"
 	@echo "make lib        - build libfssbackend.a only"
+	@echo "make bench      - build the C++ benchmark driver"
+	@echo "make run-bench  - build and run the C++ benchmark driver"
 	@echo "make tui        - build the Rust TUI frontend"
 	@echo "make run-tui    - build and run the Rust TUI frontend"
 	@echo "make cli        - build the Rust CLI frontend"
