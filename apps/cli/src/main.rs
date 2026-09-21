@@ -34,7 +34,7 @@ enum Commands {
         absolute: bool
     },
     Update,
-    Connect { #[arg(short, long)] new_root: PathBuf },
+    Connect,
     Disconnect
 }
 
@@ -115,16 +115,20 @@ fn main() {
             println!("\nFound {} result(s) in {}s:", results.len(), result_runtime_s);
         }
         Commands::Update     {} => { update_index(&root); },
-        Commands::Connect    { new_root } => {
-            if let Err(e) = connect(&new_root) {
+        Commands::Connect    {} => {
+            if let Err(e) = connect(&root) {
                 eprintln!("connect failed: {e}");
                 std::process::exit(1);
+            } else {
+                println!("connected to {}.", display_path(&root) );
             }
         },
         Commands::Disconnect {} => {
             if let Err(e) = disconnect() {
                 eprintln!("disconnect failed: {e}");
                 std::process::exit(1);
+            } else {
+                println!("disconnected from {}.", display_path(&root) );
             }
         },
 

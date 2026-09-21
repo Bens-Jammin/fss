@@ -124,7 +124,9 @@ jobs:
           echo "Needles:"
           find . -name NEEDLE -print
           
-      - name: Build balanced index
-        run: fss init --root "/benchmark_trees/balanced"
+      - name: Build balanced index and connect
+        run: |
+          fss init --root "/benchmark_trees/balanced"
+          fss connect --root "/benchmark_trees/balanced"
       - name: Run balanced search
         run: fss find --pattern "NEEDLE"
