@@ -284,8 +284,9 @@ jobs:
           </head>
           <body>
             <h1>FSS Benchmark Results</h1>
+            <h3>All measurements are in milliseconds (ms)</h3>
             <table>
-              <thead><tr><th>Benchmark</th><th>FSCrawl (ms)</th><th>insertFileEntries (ms)</th><th>update_metadata_table (ms)</th><th>Total (ms)</th><th>Output</th></tr></thead>
+              <thead><tr><th>Test</th><th>File Crawling</th><th>DB Insertion</th><th>Metadata Recording</th><th>Total</th><th>Output</th></tr></thead>
               <tbody>SROWS</tbody>
             </table>
             <p><em>Generated SGENERATED</em></p>
