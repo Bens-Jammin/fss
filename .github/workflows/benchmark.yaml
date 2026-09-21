@@ -1,0 +1,54 @@
+name: FSS Benchmark Test
+
+on:
+  push:
+    branches: [main, benchmark]
+  workflow_dispatch: # allows for manual trigger
+
+
+jobs:
+  build:  # build fss executables
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Compile code
+        run: |
+          make lib
+          make cli
+      - name: Add CLI executable to bin
+        run: |
+          bin=$(find . -type f -perm -u+x \( -name 'fss_cli' -o -name 'fss-cli' \) -not -path '*/deps/*' | head -n 1)
+          if [ -z "$bin" ]; then
+            echo "CLI binary not found" >&2
+            exit 1
+          fi
+          sudo install -m 755 "$bin" /usr/local/bin/fss
+          fss --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fss
+          path: /usr/local/bin/fss
+  run-Benchmark:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: fss
+        path: .
+    - name: Install FSS
+      run: |
+        chmod +x fss
+        sudo install -m 755 fss /usr/local/bin/fss
+    - name: Run FSS
+      run: |
+        which fss
+        fss --help
+  # compile-results:  # collect results into a more digestable format
+  #   runs-on: ubuntu-latest
+  #   steps:
+  
+  # show_results:   # display in github page (?)
+  #   runs-on: ubuntu-latest
+  #   steps:
