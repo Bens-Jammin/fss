@@ -100,36 +100,30 @@ jobs:
           echo "Needles:"
           find . -name NEEDLE -print
 
-      - name: Build balanced index and connect
+      - name: Build index
         run: |
-          fss init --root "/benchmark_trees/balanced"
-          fss connect --root "/benchmark_trees/balanced"
-      - name: Run search
+          fss init --root "/benchmark_trees/balanced" 2>&1 | tee /tmp/index_output.txt
+      - name: Collect indexing timing data
         run: |
-          fss find --pattern "NEEDLE" 2>&1 | tee /tmp/search_output.txt
-      - name: Collect benchmark data
-        run: |
-          output=$(cat /tmp/search_output.txt)
-          count=$(echo "$output" | grep -oP 'Found \K[0-9]+' | head -n1)
-          ms=$(echo "$output" | grep -oP 'in \K[0-9.]+(?=s)' | head -n1)
-          [ -z "$count" ] && count="unknown"
-          [ -z "$ms" ] && ms="unknown"
+          output=$(cat /tmp/index_output.txt)
+          fscrawl=$(echo "$output" | grep -oP '^FSCrawl:\s+\K\d+(?= ms)' | head -n1)
+          insert=$(echo "$output" | grep -oP '^insertFileEntries:\s+\K\d+(?= ms)' | head -n1)
+          metadata=$(echo "$output" | grep -oP '^update_metadata_table:\s+\K\d+(?= ms)' | head -n1)
+          total=$(echo "$output" | grep -oP '^Total:\s+\K\d+(?= ms)' | head -n1)
+          [ -z "$fscrawl" ] && fscrawl="unknown"
+          [ -z "$insert" ] && insert="unknown"
+          [ -z "$metadata" ] && metadata="unknown"
+          [ -z "$total" ] && total="unknown"
           jq -n \
             --arg benchmark "balanced" \
-            --arg results "$count" \
-            --arg time_s "$ms" \
+            --arg fscrawl_ms "$fscrawl" \
+            --arg insert_ms "$insert" \
+            --arg metadata_ms "$metadata" \
+            --arg total_ms "$total" \
             --arg output "$output" \
-            '{benchmark: $benchmark, results: $results, time_s: $time_s, output: $output}' \
+            '{benchmark: $benchmark, fscrawl_ms: $fscrawl_ms, insert_ms: $insert_ms, metadata_ms: $metadata_ms, total_ms: $total_ms, output: $output}' \
             > benchmark-balanced.json
           cat benchmark-balanced.json
-      - name: Verify correct result
-        run: |
-          if grep -q "NEEDLE" /tmp/search_output.txt && grep -q "Found 1 result" /tmp/search_output.txt; then
-            echo "PASS: expected exactly 1 result"
-          else
-            echo "FAIL: expected exactly 1 result for NEEDLE" >&2
-            exit 1
-          fi
       - uses: actions/upload-artifact@v4
         with:
           name: results-balanced
@@ -187,36 +181,30 @@ jobs:
           echo "Needles:"
           find . -name NEEDLE -print
 
-      - name: Build index and connect
+      - name: Build index
         run: |
-          fss init --root "/benchmark_trees/wide_deep"
-          fss connect --root "/benchmark_trees/wide_deep"
-      - name: Run search
+          fss init --root "/benchmark_trees/wide_deep" 2>&1 | tee /tmp/index_output.txt
+      - name: Collect indexing timing data
         run: |
-          fss find --pattern "NEEDLE" 2>&1 | tee /tmp/search_output.txt
-      - name: Collect benchmark data
-        run: |
-          output=$(cat /tmp/search_output.txt)
-          count=$(echo "$output" | grep -oP 'Found \K[0-9]+' | head -n1)
-          ms=$(echo "$output" | grep -oP 'in \K[0-9.]+(?=s)' | head -n1)
-          [ -z "$count" ] && count="unknown"
-          [ -z "$ms" ] && ms="unknown"
+          output=$(cat /tmp/index_output.txt)
+          fscrawl=$(echo "$output" | grep -oP '^FSCrawl:\s+\K\d+(?= ms)' | head -n1)
+          insert=$(echo "$output" | grep -oP '^insertFileEntries:\s+\K\d+(?= ms)' | head -n1)
+          metadata=$(echo "$output" | grep -oP '^update_metadata_table:\s+\K\d+(?= ms)' | head -n1)
+          total=$(echo "$output" | grep -oP '^Total:\s+\K\d+(?= ms)' | head -n1)
+          [ -z "$fscrawl" ] && fscrawl="unknown"
+          [ -z "$insert" ] && insert="unknown"
+          [ -z "$metadata" ] && metadata="unknown"
+          [ -z "$total" ] && total="unknown"
           jq -n \
             --arg benchmark "wide_deep" \
-            --arg results "$count" \
-            --arg time_s "$ms" \
+            --arg fscrawl_ms "$fscrawl" \
+            --arg insert_ms "$insert" \
+            --arg metadata_ms "$metadata" \
+            --arg total_ms "$total" \
             --arg output "$output" \
-            '{benchmark: $benchmark, results: $results, time_s: $time_s, output: $output}' \
+            '{benchmark: $benchmark, fscrawl_ms: $fscrawl_ms, insert_ms: $insert_ms, metadata_ms: $metadata_ms, total_ms: $total_ms, output: $output}' \
             > benchmark-wide-deep.json
           cat benchmark-wide-deep.json
-      - name: Verify correct result
-        run: |
-          if grep -q "NEEDLE" /tmp/search_output.txt && grep -q "Found 1 result" /tmp/search_output.txt; then
-            echo "PASS: expected exactly 1 result"
-          else
-            echo "FAIL: expected exactly 1 result for NEEDLE" >&2
-            exit 1
-          fi
       - uses: actions/upload-artifact@v4
         with:
           name: results-wide-deep
@@ -268,12 +256,14 @@ jobs:
           rows = ''
           for d in records:
               bench = html.escape(str(d.get('benchmark', '?')))
-              count = html.escape(str(d.get('results', 'n/a')))
-              ms = html.escape(str(d.get('time_s', 'n/a')))
+              fscrawl = html.escape(str(d.get('fscrawl_ms', 'n/a')))
+              insert = html.escape(str(d.get('insert_ms', 'n/a')))
+              metadata = html.escape(str(d.get('metadata_ms', 'n/a')))
+              total = html.escape(str(d.get('total_ms', 'n/a')))
               out = html.escape(d.get('output', ''))
               rows += (
-                  '<tr><td>%s</td><td>%s</td><td>%ss</td><td><pre>%s</pre></td></tr>'
-                  % (bench, count, ms, out)
+                  '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><pre>%s</pre></td></tr>'
+                  % (bench, fscrawl, insert, metadata, total, out)
               )
 
           generated = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
@@ -295,7 +285,7 @@ jobs:
           <body>
             <h1>FSS Benchmark Results</h1>
             <table>
-              <thead><tr><th>Benchmark</th><th>Results</th><th>Time (s)</th><th>Output</th></tr></thead>
+              <thead><tr><th>Benchmark</th><th>FSCrawl (ms)</th><th>insertFileEntries (ms)</th><th>update_metadata_table (ms)</th><th>Total (ms)</th><th>Output</th></tr></thead>
               <tbody>SROWS</tbody>
             </table>
             <p><em>Generated SGENERATED</em></p>
