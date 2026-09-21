@@ -110,10 +110,10 @@ fn main() {
                 }
             } else {
                 for r in &results {
-                    println!("- {}", display_path( &r ));
+                    println!("-> {}", display_path( &r ));
                 }
             }
-            println!("\nFound {} result(s) in {}s:", results.len(), result_runtime_s);
+            println!("\nFound {} result(s) in {}s.", results.len(), result_runtime_s);
         }
         Commands::Update     {} => { update_index(&root); },
         Commands::Connect    {} => {
@@ -121,7 +121,7 @@ fn main() {
                 eprintln!("connect failed: {e}");
                 std::process::exit(1);
             } else {
-                println!("connected to {}.", display_path(&root) );
+                println!("connected to {}.", display_path(&root.canonicalize().unwrap()) );
             }
         },
         Commands::Disconnect {} => {
@@ -129,7 +129,7 @@ fn main() {
                 eprintln!("disconnect failed: {e}");
                 std::process::exit(1);
             } else {
-                println!("disconnected from {}.", display_path(&root) );
+                println!("disconnected from {}.", display_path(&root.canonicalize().unwrap()) );
             }
         },
 
