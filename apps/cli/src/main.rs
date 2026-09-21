@@ -110,7 +110,7 @@ fn main() {
                 }
             } else {
                 for r in &results {
-                    println!("-> {}", display_path( &r ));
+                    println!("- {}", display_path( &r ));
                 }
             }
             println!("\nFound {} result(s) in {}s.", results.len(), result_runtime_s);

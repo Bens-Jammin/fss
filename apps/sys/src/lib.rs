@@ -1,6 +1,6 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 
@@ -106,28 +106,27 @@ pub fn fetch_index_metadata(root: &str) -> HashMap<String, String> {
 
 
 pub fn search_for(root: &str, text: &str) -> Vec<PathBuf> {
+    let mut seen: HashSet<PathBuf> = HashSet::new();  // Removes duplicate items
     let mut list_items: Vec<PathBuf> = Vec::new();
 
-    // -- check exact match ---
-    let exact_match_results = query_for(root, text);
-    for r in exact_match_results {
-        list_items.push( PathBuf::from( r ));
+    for r in query_for(root, text) {
+        let p = PathBuf::from(r);
+        if seen.insert(p.clone()) {
+            list_items.push(p);
+        }
     }
-    // if !list_items.is_empty() { return list_items; }
-
-
-    // --- check for a rough match ---
-    let like_match_results = query_like(root, text);
-    for r in like_match_results {
-        list_items.push( PathBuf::from( r ));
+    for r in query_like(root, text) {
+        let p = PathBuf::from(r);
+        if seen.insert(p.clone()) {
+            list_items.push(p);
+        }
     }
-    // if !list_items.is_empty() { return list_items; }
-
-
-    // --- try matching extensions ---
-    let ext_match_results = query_extension(root, text);
-    for r in ext_match_results {
-        list_items.push( PathBuf::from( r ));
+    for r in query_extension(root, text) {
+        let p = PathBuf::from(r);
+        if seen.insert(p.clone()) {
+            list_items.push(p);
+        }
     }
+
     list_items
 }
