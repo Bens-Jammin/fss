@@ -48,8 +48,9 @@ jobs:
       - name: Prepare benchmark trees
         run: |
           cd /
-          rm -rf benchmark_trees
-          mkdir benchmark_trees
+          sudo rm -rf benchmark_trees
+          sudo mkdir benchmark_trees
+          sudo chown "$USER:$(id -gn)" benchmark_trees
           cd benchmark_trees
 
           # ============================================================
