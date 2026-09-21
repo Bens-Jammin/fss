@@ -33,104 +33,97 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: fss
-        path: .
-    - name: Install FSS
-      run: |
-        chmod +x fss
-        sudo install -m 755 fss /usr/local/bin/fss
-    - name: Run FSS
-      run: |
-        which fss
-        fss --help
-    - name: Prepare benchmark trees
-      run: |
-        cd /
-        rm -rf benchmark_trees
-        mkdir benchmark_trees
-        cd benchmark_trees
+      - uses: actions/download-artifact@v4
+        with:
+          name: fss
+          path: .
+      - name: Install FSS
+        run: |
+          chmod +x fss
+          sudo install -m 755 fss /usr/local/bin/fss
+      - name: Verify FSS
+        run: |
+          which fss
+          fss --help
+      - name: Prepare benchmark trees
+        run: |
+          cd /
+          rm -rf benchmark_trees
+          mkdir benchmark_trees
+          cd benchmark_trees
 
-        # ============================================================
-        # BALANCED TREE
-        #
-        # 10-way branching, 5 levels deep.
-        # 10^5 = 100,000 leaf directories
-        # 1 file per leaf = ~100,000 files
-        # ============================================================
+          # ============================================================
+          # BALANCED TREE
+          #
+          # 10-way branching, 5 levels deep.
+          # 10^5 = 100,000 leaf directories
+          # 1 file per leaf = ~100,000 files
+          # ============================================================
 
-        mkdir balanced
+          mkdir balanced
 
-        for a in $(seq -w 1 10); do
-          for b in $(seq -w 1 10); do
-            for c in $(seq -w 1 10); do
-              for d in $(seq -w 1 10); do
-                for e in $(seq -w 1 10); do
-                  dir="balanced/$a/$b/$c/$d/$e"
-                  mkdir -p "$dir"
-                  touch "$dir/file"
+          for a in $(seq -w 1 10); do
+            for b in $(seq -w 1 10); do
+              for c in $(seq -w 1 10); do
+                for d in $(seq -w 1 10); do
+                  for e in $(seq -w 1 10); do
+                    dir="balanced/$a/$b/$c/$d/$e"
+                    mkdir -p "$dir"
+                    touch "$dir/file"
+                  done
                 done
               done
             done
           done
-        done
 
-        # Needle deliberately placed in the final directory.
-        touch balanced/10/10/10/10/10/NEEDLE
+          # Needle deliberately placed in the final directory.
+          touch balanced/10/10/10/10/10/NEEDLE
 
-        # ============================================================
-        # WIDE-DEEP TREE
-        #
-        # 100 x 100 directories, 10 files per leaf.
-        # ~100,000 files total.
-        # ============================================================
+          # ============================================================
+          # WIDE-DEEP TREE
+          #
+          # 100 x 100 directories, 10 files per leaf.
+          # ~100,000 files total.
+          # ============================================================
 
-        mkdir wide_deep
+          mkdir wide_deep
 
-        for a in $(seq -w 1 100); do
-          for b in $(seq -w 1 100); do
-            dir="wide_deep/$a/$b"
-            mkdir -p "$dir"
+          for a in $(seq -w 1 100); do
+            for b in $(seq -w 1 100); do
+              dir="wide_deep/$a/$b"
+              mkdir -p "$dir"
 
-            for f in $(seq -w 1 10); do
-              touch "$dir/file_$f"
+              for f in $(seq -w 1 10); do
+                touch "$dir/file_$f"
+              done
             done
           done
-        done
 
-        # Needle deliberately placed in the final leaf.
-        touch wide_deep/100/100/NEEDLE
+          # Needle deliberately placed in the final leaf.
+          touch wide_deep/100/100/NEEDLE
 
-        # ============================================================
-        # SUMMARY
-        # ============================================================
+          # ============================================================
+          # SUMMARY
+          # ============================================================
 
-        echo "Benchmark trees created:"
-        echo
-        echo "Balanced:"
-        find balanced -type f | wc -l
+          echo "Benchmark trees created:"
+          echo
+          echo "Balanced:"
+          find balanced -type f | wc -l
 
-        echo
-        echo "Wide-deep:"
-        find wide_deep -type f | wc -l
+          echo
+          echo "Wide-deep:"
+          find wide_deep -type f | wc -l
 
-        echo
-        echo "Total:"
-        find . -type f | wc -l
+          echo
+          echo "Total:"
+          find . -type f | wc -l
 
-        echo
-        echo "Needles:"
-        find . -name NEEDLE -print
-    - name: Build balanced index
-      run: |
-        fss --init /benchmark_trees/balanced
-    - name: run balanced search
-        fss find --pattern "NEEDLE"
-  # compile-results:  # collect results into a more digestable format
-  #   runs-on: ubuntu-latest
-  #   steps:
-  
-  # show_results:   # display in github page (?)
-  #   runs-on: ubuntu-latest
-  #   steps:
+          echo
+          echo "Needles:"
+          find . -name NEEDLE -print
+          
+      - name: Build balanced index
+        run: fss --init /benchmark_trees/balanced
+      - name: Run balanced search
+        run: fss find --pattern "NEEDLE"
