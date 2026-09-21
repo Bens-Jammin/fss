@@ -136,8 +136,8 @@ jobs:
           touch wide_deep/{001..100}/{001..100}/file_{01..10}
 
 
-          # # Needle deliberately placed in the final leaf.
-          # touch wide_deep/100/100/NEEDLE
+          # Needle deliberately placed in the final leaf.
+          touch wide_deep/100/100/NEEDLE
 
           # ============================================================
           # SUMMARY

@@ -102,6 +102,7 @@ fn main() {
 
             if results.is_empty() {
                 println!("0 Results found in {}s.", result_runtime_s);
+                std::process::exit(1);
             }
             if absolute {
                 for r in &results {
