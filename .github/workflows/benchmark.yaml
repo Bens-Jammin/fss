@@ -227,7 +227,29 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      FSS_PAGES_PAT: ${{ secrets.FSS_PAGES_PAT }}
     steps:
+      - name: Enable GitHub Pages site
+        if: env.FSS_PAGES_PAT != ''
+        run: |
+          api="https://api.github.com/repos/${{ github.repository }}/pages"
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $FSS_PAGES_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$api")
+          if [ "$code" = "404" ]; then
+            echo "Pages site missing - creating it..."
+            curl -s -X POST \
+              -H "Authorization: Bearer $FSS_PAGES_PAT" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$api" \
+              -d '{"build_type":"workflow","source":{"branch":"main","path":"/"}}'
+          else
+            echo "Pages site exists (HTTP $code)"
+          fi
       - name: Download benchmark results
         uses: actions/download-artifact@v4
         with:
@@ -285,10 +307,12 @@ jobs:
               f.write(page.replace('SROWS', rows).replace('SGENERATED', generated))
           print('Wrote _site/index.html')
           EOF
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      # - name: Deploy to GitHub Pages
+      #   id: deployment
+      #   uses: actions/deploy-pages@v4
