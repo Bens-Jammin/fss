@@ -5,7 +5,9 @@ use std::path::PathBuf;
 
 
 extern "C" {
+
     fn fss_init(root: *const c_char);
+    fn fss_update(root: *const c_char);
 
     fn fss_query_for(root: *const c_char, name: *const c_char) -> *mut c_char;
     fn fss_query_like(root: *const c_char, pattern: *const c_char) -> *mut c_char;
@@ -38,8 +40,8 @@ pub fn update_index(root: &PathBuf) {
         },
         None => eprintln!("Unable to convert root ({}) of type &PathBuf to string", root.display()),
     }
-
 }
+
 
 pub fn query_for(root: &str, name: &str) -> Vec<String> {
     let c_name = CString::new(name).unwrap();

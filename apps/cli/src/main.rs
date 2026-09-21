@@ -1,8 +1,7 @@
 use std::path::PathBuf;
-use std::fs::canonicalize;
 use clap::{Parser, Subcommand};
-use fss_sys::{search_for, init_index};
-
+use fss_sys::{search_for, init_index, update_index};
+use std::time::Instant;
 
 // To run:
 // 1) make lib
@@ -14,97 +13,120 @@ use fss_sys::{search_for, init_index};
 
 /// fss - fast fuzzy file system search
 #[derive(Parser)]
-#[command(name = "fss", version, about = "Fast fuzzy file system search")]
+#[command(name = "fss", version, about = "Fast System Search engine")]
 struct Cli {
+    /// Root directory of the index (overrides the connected index)
+    #[arg(short, long, value_name = "PATH", env = "FSS_ROOT", global = true)]
+    root: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Build or initialize an index
-    Init {
-        /// Root directory to index (defaults to the current directory)
-        #[arg(short, long, value_name = "PATH", default_value = ".")]
-        root: PathBuf,
-
-        /// Rebuild the index even if one already exists
-        #[arg(short, long)]
-        force: bool,
-    },
-    /// Show current index state / metadata
-    State {
-        /// Root directory whose index metadata should be shown
-        #[arg(short, long, value_name = "PATH", default_value = ".")]
-        root: PathBuf,
-    },
-    /// Query the index for matching cases
+    Init { #[arg(short, long)] force: bool },
+    State,
     Find {
-        /// Root directory to index (defaults to the current directory)
-        #[arg(short, long, value_name = "PATH", default_value = ".")]
-        root: PathBuf,
-
-        /// Pattern to search for in the index tree. Can be a file/dir name or file extension
         #[arg(short, long, value_name = "PATTERN")]
         pattern: String,
-
-        /// Return the file paths as absolute paths
-        #[arg(short, long, action = clap::ArgAction::SetTrue)]
-        absolute: bool,
+        #[arg(short, long)]
+        absolute: bool
     },
-    /// Refresh the index
-    Update {
-        /// Root directory to index (defaults to the current directory)
-        #[arg(short, long, value_name = "PATH", default_value = ".")]
-        root: PathBuf
-    },
-    /// Sets a default index for which to perform all commands on
-    Connect {
-        /// Root directory to index (defaults to the current directory)
-        #[arg(short, long, value_name = "PATH", default_value = ".")]
-        root: PathBuf
-    },
-    /// Disconnects from an index if currently connected
-    Disconnect {},
+    Update,
+    Connect { #[arg(short, long)] new_root: PathBuf },
+    Disconnect
 }
+
+fn state_file() -> Option<PathBuf> {
+    // `dirs` crate; on Windows this lands in %APPDATA%
+    dirs::config_dir()
+        .map(|d| 
+            d.join("fss")
+            .join("connected_root")
+        )
+}
+
+fn resolve_root(explicit: Option<PathBuf>) -> PathBuf {
+    explicit
+        .or_else(connected_root)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+
+fn connect(root: &PathBuf) -> std::io::Result<()> {
+    let root = root.canonicalize()?;
+    let file = state_file().expect("no config dir available");
+    std::fs::create_dir_all(file.parent().unwrap())?;
+    std::fs::write(file, root.to_string_lossy().as_bytes())
+}
+
+fn disconnect() -> std::io::Result<()> {
+    let Some(file) = state_file() else { return Ok(()) };
+    match std::fs::remove_file(file) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        other => other,
+    }
+}
+
+fn connected_root() -> Option<PathBuf> {
+    let file = state_file()?;
+    let s = std::fs::read_to_string(file).ok()?;
+    let s = s.trim();
+    if s.is_empty() { return None; }
+    Some(PathBuf::from(s))
+}
+
 
 fn main() {
     let cli = Cli::parse();
+    let root: PathBuf = resolve_root(cli.root.clone());
 
     match cli.command {
-        // TODO: wire up to fss_sys once root-parameterized FFI lands
-        Commands::Init { root, force } => {
-            println!("init: root={:?}, force={}", root, force);
+        Commands::Init { force } => {
             init_index(&root);
         }
-        // TODO: call fss_sys::fetch_index_metadata() and print it
-        Commands::State { root } => {
+        Commands::State => {
             println!("{}", root.canonicalize().unwrap().display());
             let displayable_abs_root: String = display_path(&root.canonicalize().unwrap());
             println!("state: root={:?}", displayable_abs_root);
         }
-        Commands::Find { root, pattern, absolute } => {
+        Commands::Find { pattern, absolute } => {
             if pattern.trim().is_empty() { println!("Cannot pattern match on an empty pattern."); }
             // TODO: what if this root isnt indexed?
-
+            
+            let start = Instant::now();
             let results = search_for(root.to_str().unwrap(), &pattern.to_string());
+            let duration = start.elapsed();
+            let result_runtime_s: f64 = (duration.as_millis() as f64) / 1000.0;
+
             if results.is_empty() {
-                println!("0 Results found.");
+                println!("0 Results found in {}s.", result_runtime_s);
             }
-            println!("Found {} result(s):", results.len());
             if absolute {
-                for r in results {
+                for r in &results {
                     println!("- {}", display_path(&r.canonicalize().unwrap()));
                 }
             } else {
-                for r in results {
-                    println!("- {}", r.display());
+                for r in &results {
+                    println!("- {}", display_path( &r ));
                 }
             }
+            println!("\nFound {} result(s) in {}s:", results.len(), result_runtime_s);
         }
-        Commands::Update  { root } => { fss_update(root); },
-        Commands::Connect { root } => { panic!("Not yet implemented!"); },
-        Commands::Disconnect {}    => { panic!("Not yet implemented!"); },
+        Commands::Update     {} => { update_index(&root); },
+        Commands::Connect    { new_root } => {
+            if let Err(e) = connect(&new_root) {
+                eprintln!("connect failed: {e}");
+                std::process::exit(1);
+            }
+        },
+        Commands::Disconnect {} => {
+            if let Err(e) = disconnect() {
+                eprintln!("disconnect failed: {e}");
+                std::process::exit(1);
+            }
+        },
 
     }
 }

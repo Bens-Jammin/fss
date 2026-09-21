@@ -1,3 +1,5 @@
+// FSSIndexer::update(): re-scans the tree, uses directory mtimes to find changed
+// subtrees, then refreshes the db and metadata tables
 #include "fss/fss.hpp"
 #include "db.hpp"
 #include <unordered_map>

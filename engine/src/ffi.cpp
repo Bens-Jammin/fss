@@ -1,3 +1,4 @@
+// C ABI (extern"C") layer exposing the indexer (init/update/query/metadata) to other languages
 #include "ffi.h"
 #include "fss/fss.hpp"
 #include <cstring>

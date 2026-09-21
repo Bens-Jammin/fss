@@ -1,3 +1,5 @@
+// helper/glue declarations shared by the indexer: db lookups (getIDs, getMTimes),
+// mtime checks, FSS_RESULT construction, and the recursive walk used by update()
 #pragma once
 #include <cstdlib>
 #include <cstring>

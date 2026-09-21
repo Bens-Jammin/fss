@@ -1,3 +1,4 @@
+// misc helpers: maps a root path to its on-disk db file and returns current unix time
 #include <filesystem>
 #include <chrono>
 #include <ctime>
