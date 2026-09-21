@@ -125,6 +125,6 @@ jobs:
           find . -name NEEDLE -print
           
       - name: Build balanced index
-        run: fss --init /benchmark_trees/balanced
+        run: fss init /benchmark_trees/balanced
       - name: Run balanced search
         run: fss find --pattern "NEEDLE"
