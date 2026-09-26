@@ -1,5 +1,5 @@
 #include "fss/fss.hpp"
-
+#include "settings.hpp"
 int main() {
     std::cout << "hello from main!\n";
 
@@ -13,6 +13,7 @@ int main() {
     // for (const auto& [key, value] : indexer.metadata()) {
     //     std::cout << key << ": " << value << "\n";
     // }
+    registerd_indices();
 
     indexer.done();
     return 0;

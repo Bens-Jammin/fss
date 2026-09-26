@@ -8,6 +8,7 @@
 #include "utils.hpp"
 #include "db.hpp"
 #include "crawler.hpp"
+#include "settings.hpp"
 
 namespace fs = std::filesystem;
 
@@ -19,6 +20,8 @@ FSSIndexer::FSSIndexer(string root) : root{root}, dbPath{DBPath(root)}, debug{fa
     sqlite3* db = openDB(dbPath);
     bool needsBuild = !existed || DBisEmpty(db);
     sqlite3_close(db);
+
+    register_index(root);
 
     if (needsBuild) {
         FSS_RESULT res = this->build_index();
