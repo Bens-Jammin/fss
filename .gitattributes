@@ -1,0 +1,4 @@
+# Shell scripts are executed by bash (Git Bash / MSYS2) on Windows runners.
+# A CRLF shebang makes bash fail with "\r: command not found", so pin LF here
+# regardless of core.autocrlf.
+*.sh text eol=lf

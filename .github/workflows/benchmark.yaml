@@ -14,204 +14,211 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+# `bash` resolves to the system bash on ubuntu-latest and to Git Bash on
+# windows-latest, so every step below is written once and runs on both.
+# The MinGW-w64 toolchain is injected into PATH separately (see Build), which
+# is why we do not need the msys2 shell here. Note that GitHub's runner does
+# not allow `shell:` to come from the matrix context, hence a literal here.
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  Build-and-Setup-Benchmark:  # build fss executables
-    runs-on: ubuntu-latest
+  Build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
+      - name: Keep line endings LF (Windows)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf input
+
       - name: Check out repository code
         uses: actions/checkout@v4
+
+      - name: Install build dependencies (Linux)
+        if: runner.os != 'Windows'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sqlite3 libsqlite3-dev
+
+      # The Windows image ships MSYS2 with pacman but no MinGW-w64 toolchain,
+      # no `make`, and a Rust that defaults to the MSVC host triple. The C++
+      # backend links stdc++/sqlite3 as MinGW archives, so we need a complete
+      # MinGW-w64 environment *including* a GNU-host Rust. Installing all of it
+      # from one pacman repo keeps the ABI consistent (UCRT everywhere) instead
+      # of mixing rustup's bundled runtime with MSYS2's libstdc++.
+      - name: Install MinGW-w64 toolchain (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        id: msys2
+        with:
+          msystem: UCRT64
+          release: false # reuse the C:\msys64 already on the image
+          update: true
+          install: >-
+            make
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-sqlite3
+            mingw-w64-ucrt-x86_64-rust
+
+      - name: Export MinGW-w64 toolchain to PATH (Windows)
+        if: runner.os == 'Windows'
+        env:
+          MSYS_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: |
+          # GITHUB_PATH is parsed by the Windows runner, so it needs Windows paths.
+          # GITHUB_ENV is consumed by bash below, so it needs the POSIX form.
+          printf '%s\n' "$MSYS_LOCATION\\ucrt64\\bin" "$MSYS_LOCATION\\usr\\bin" >> "$GITHUB_PATH"
+          echo "MAKE=$(cygpath -u "$MSYS_LOCATION")/usr/bin/make.exe" >> "$GITHUB_ENV"
+          echo "MAKE=$MAKE"
+
+      - name: Set make (Linux)
+        if: runner.os != 'Windows'
+        run: echo "MAKE=make" >> "$GITHUB_ENV"
+
+      - name: Verify toolchain (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          g++ --version
+          ar --version
+          cargo --version
+          rustc -vV | grep host
+
       - name: Compile code
         run: |
-          make lib
-          make cli
-      # TODO: test FAILS!
-      # - name: Test functionality of FSS
-      #   run: make test
-      - name: Add CLI executable to bin
+          "$MAKE" lib
+          "$MAKE" cli
+
+      - name: Package the CLI
         run: |
-          bin=$(find . -type f -perm -u+x \( -name 'fss_cli' -o -name 'fss-cli' \) -not -path '*/deps/*' | head -n 1)
-          if [ -z "$bin" ]; then
-            echo "CLI binary not found" >&2
-            exit 1
+          mkdir -p fss-bin
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp apps/target/release/fss_cli.exe fss-bin/fss.exe
+          else
+            cp apps/target/release/fss_cli fss-bin/fss
           fi
-          sudo install -m 755 "$bin" /usr/local/bin/fss
-          fss --help
+          chmod +x fss-bin/fss*
+          ./fss-bin/fss --help
+
       - uses: actions/upload-artifact@v4
         with:
-          name: fss
-          path: /usr/local/bin/fss
-  BENCHMARK-NiTH-Balanced:
-    runs-on: ubuntu-latest
-    needs: Build-and-Setup-Benchmark
+          name: fss-${{ matrix.os }}
+          path: fss-bin/
+          if-no-files-found: error
+
+  Benchmark:
+    name: ${{ matrix.benchmark }} (${{ matrix.os }})
+    needs: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        benchmark: [balanced, wide_deep]
+        os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Keep line endings LF (Windows)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf input
+
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Install MinGW-w64 runtime (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        id: msys2
         with:
-          name: fss
-          path: .
-      - name: Install FSS
-        run: |
-          chmod +x fss
-          sudo install -m 755 fss /usr/local/bin/fss
+          msystem: UCRT64
+          release: false
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-libsqlite3
+            mingw-w64-ucrt-x86_64-libstdcxx
+            mingw-w64-ucrt-x86_64-libgcc
+            mingw-w64-ucrt-x86_64-libwinpthread-git
+
+      - name: Export MinGW-w64 runtime to PATH (Windows)
+        if: runner.os == 'Windows'
+        env:
+          MSYS_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: printf '%s\n' "$MSYS_LOCATION\\ucrt64\\bin" >> "$GITHUB_PATH"
+
+      - name: Download FSS
+        uses: actions/download-artifact@v4
+        with:
+          name: fss-${{ matrix.os }}
+          path: fss-bin
+
       - name: Verify FSS
         run: |
-          which fss
-          fss --help
-      - name: Prepare benchmark trees
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            ./fss-bin/fss.exe --help
+          else
+            ./fss-bin/fss --help
+          fi
+
+      # On Linux the tree lives at the filesystem root, which needs sudo once.
+      - name: Create benchmark root (Linux)
+        if: runner.os != 'Windows'
         run: |
-          cd /
-          sudo rm -rf benchmark_trees
-          sudo mkdir benchmark_trees
-          sudo chown "$USER:$(id -gn)" benchmark_trees
-          cd benchmark_trees
+          sudo mkdir -p /benchmark_trees
+          sudo chown "$(id -u):$(id -g)" /benchmark_trees
 
-          # ============================================================
-          # BALANCED TREE
-          #
-          # 10-way branching, 5 levels deep.
-          # 10^5 = 100,000 leaf directories
-          # 1 file per leaf = ~100,000 files
-          # ============================================================
+      # Defender scans every file create and every file read. Left on, it
+      # dominates the measurement and swamps the differences we actually care
+      # about, so exclude the tree from real-time scanning.
+      - name: Exclude benchmark root from Defender (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath 'D:\benchmark_trees'
+          Add-MpPreference -ExclusionProcess 'fss.exe'
+          Write-Host 'Defender exclusions added.'
 
-          mkdir balanced
+      - name: Resolve benchmark root
+        run: |
+          if [ "$RUNNER_OS" = 'Windows' ]; then
+            root='/d/benchmark_trees'
+          else
+            root='/benchmark_trees'
+          fi
+          echo "BENCH_ROOT=$root" >> "$GITHUB_ENV"
+          echo "BENCH_ROOT=$root"
 
-          # 1. Create all 100,000 nested directories in one shot
-          mkdir -p balanced/{01..10}/{01..10}/{01..10}/{01..10}/{01..10}
-
-          # 2. Create the file inside every directory instantly
-          touch balanced/{01..10}/{01..10}/{01..10}/{01..10}/{01..10}/file
-
-          # Needle deliberately placed in the final directory.
-          touch balanced/10/10/10/10/10/NEEDLE
-
-          # ============================================================
-          # SUMMARY
-          # ============================================================
-
-          echo "Benchmark trees created:"
-          echo
-          echo "Balanced:"
-          find balanced -type f | wc -l
-
-          echo
-          echo "Total:"
-          find . -type f | wc -l
-
-          echo
-          echo "Needles:"
-          find . -name NEEDLE -print
+      - name: Prepare benchmark tree
+        run: bash .github/scripts/make_trees.sh "$BENCH_ROOT" '${{ matrix.benchmark }}'
 
       - name: Build index
         run: |
-          fss init --root "/benchmark_trees/balanced" 2>&1 | tee /tmp/index_output.txt
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            fss_bin=./fss-bin/fss.exe
+          else
+            fss_bin=./fss-bin/fss
+          fi
+          "$fss_bin" init --root "$BENCH_ROOT/${{ matrix.benchmark }}" 2>&1 | tee index_output.txt
+
       - name: Collect indexing timing data
         run: |
-          output=$(cat /tmp/index_output.txt)
-          fscrawl=$(echo "$output" | grep -oP '^FSCrawl:\s+\K\d+(?= ms)' | head -n1)
-          insert=$(echo "$output" | grep -oP '^insertFileEntries:\s+\K\d+(?= ms)' | head -n1)
-          metadata=$(echo "$output" | grep -oP '^update_metadata_table:\s+\K\d+(?= ms)' | head -n1)
-          total=$(echo "$output" | grep -oP '^Total:\s+\K\d+(?= ms)' | head -n1)
-          [ -z "$fscrawl" ] && fscrawl="unknown"
-          [ -z "$insert" ] && insert="unknown"
-          [ -z "$metadata" ] && metadata="unknown"
-          [ -z "$total" ] && total="unknown"
-          jq -n \
-            --arg benchmark "balanced" \
-            --arg fscrawl_ms "$fscrawl" \
-            --arg insert_ms "$insert" \
-            --arg metadata_ms "$metadata" \
-            --arg total_ms "$total" \
-            --arg output "$output" \
-            '{benchmark: $benchmark, fscrawl_ms: $fscrawl_ms, insert_ms: $insert_ms, metadata_ms: $metadata_ms, total_ms: $total_ms, output: $output}' \
-            > benchmark-balanced.json
-          cat benchmark-balanced.json
+          bash .github/scripts/collect_timings.sh \
+            index_output.txt \
+            '${{ matrix.benchmark }}' \
+            '${{ matrix.os }}' \
+            'results-${{ matrix.os }}-${{ matrix.benchmark }}.json'
+
       - uses: actions/upload-artifact@v4
         with:
-          name: results-balanced
-          path: benchmark-balanced.json
-  BENCHMARK-NiTH-WideDeep:
-    runs-on: ubuntu-latest
-    needs: Build-and-Setup-Benchmark
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: fss
-          path: .
-      - name: Install FSS
-        run: |
-          chmod +x fss
-          sudo install -m 755 fss /usr/local/bin/fss
-      - name: Verify FSS
-        run: |
-          which fss
-          fss --help
-      - name: Prepare benchmark trees
-        run: |
-          cd /
-          sudo rm -rf benchmark_trees
-          sudo mkdir benchmark_trees
-          sudo chown "$USER:$(id -gn)" benchmark_trees
-          cd benchmark_trees
+          name: results-${{ matrix.os }}-${{ matrix.benchmark }}
+          path: results-*.json
+          if-no-files-found: error
 
-          # ============================================================
-          # WIDE-DEEP TREE
-          #
-          # 100 x 100 directories, 10 files per leaf.
-          # ~100,000 files total.
-          # ============================================================
-
-          # 1. Create all 10,000 directories instantly
-          mkdir -p wide_deep/{001..100}/{001..100}
-
-          # 2. Create all 100,000 files simultaneously
-          touch wide_deep/{001..100}/{001..100}/file_{01..10}
-
-          # Needle deliberately placed in the final leaf.
-          touch wide_deep/100/100/NEEDLE
-
-          # ============================================================
-          # SUMMARY
-          # ============================================================
-
-          echo "Benchmark trees created:"
-          echo
-          echo "Wide-deep:"
-          find wide_deep -type f | wc -l
-
-          echo
-          echo "Needles:"
-          find . -name NEEDLE -print
-
-      - name: Build index
-        run: |
-          fss init --root "/benchmark_trees/wide_deep" 2>&1 | tee /tmp/index_output.txt
-      - name: Collect indexing timing data
-        run: |
-          output=$(cat /tmp/index_output.txt)
-          fscrawl=$(echo "$output" | grep -oP '^FSCrawl:\s+\K\d+(?= ms)' | head -n1)
-          insert=$(echo "$output" | grep -oP '^insertFileEntries:\s+\K\d+(?= ms)' | head -n1)
-          metadata=$(echo "$output" | grep -oP '^update_metadata_table:\s+\K\d+(?= ms)' | head -n1)
-          total=$(echo "$output" | grep -oP '^Total:\s+\K\d+(?= ms)' | head -n1)
-          [ -z "$fscrawl" ] && fscrawl="unknown"
-          [ -z "$insert" ] && insert="unknown"
-          [ -z "$metadata" ] && metadata="unknown"
-          [ -z "$total" ] && total="unknown"
-          jq -n \
-            --arg benchmark "wide_deep" \
-            --arg fscrawl_ms "$fscrawl" \
-            --arg insert_ms "$insert" \
-            --arg metadata_ms "$metadata" \
-            --arg total_ms "$total" \
-            --arg output "$output" \
-            '{benchmark: $benchmark, fscrawl_ms: $fscrawl_ms, insert_ms: $insert_ms, metadata_ms: $metadata_ms, total_ms: $total_ms, output: $output}' \
-            > benchmark-wide-deep.json
-          cat benchmark-wide-deep.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: results-wide-deep
-          path: benchmark-wide-deep.json
   Publish-Results:
     runs-on: ubuntu-latest
-    needs: [BENCHMARK-NiTH-Balanced, BENCHMARK-NiTH-WideDeep]
+    needs: [Benchmark]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -266,17 +273,24 @@ jobs:
                   return None
 
 
+          def label(d):
+              return '%s (%s)' % (d.get('benchmark', '?'), d.get('os', '?'))
+
+
           records = []
           for path in sorted(glob.glob('results/*.json')):
               with open(path) as f:
                   records.append(json.load(f))
 
           benches = []
-          for i, d in enumerate(records):
-              benches.append((html.escape(str(d.get('benchmark', '?'))), d,
+          ordered = sorted(records, key=lambda r: (str(r.get('benchmark', '?')), str(r.get('os', '?'))))
+          for i, d in enumerate(ordered):
+              benches.append((html.escape(label(d)), d,
                               BENCH_COLORS[i % len(BENCH_COLORS)]))
 
-          # Chart 1: horizontal 100% stacked bars (phase breakdown per benchmark)
+          # Chart 1: horizontal 100% stacked bars (phase breakdown per benchmark).
+          # Self-normalised, so this is the chart that compares cleanly across
+          # operating systems.
           phase_bars = ''
           for name, d, _ in benches:
               vals = {k: num(d, k) for k, _, _ in PHASES}
@@ -311,17 +325,17 @@ jobs:
               '<span><span class="swatch" style="background:%s"></span>%s</span>'
               % (color, label) for _, label, color in PHASES)
 
-          # Chart 2: posted results vs baseline, one group per metric
+          # Chart 2: posted results vs baseline, one group per metric.
           legend2 = ''.join(
               '<span><span class="swatch" style="background:%s"></span>%s</span>'
               % (color, name) for name, _, color in benches)
           legend2 += ('<span><span class="swatch" style="background:#bab0ac"></span>'
-                      'Baseline</span>')
+                      'Linux baseline</span>')
 
           cmp_blocks = ''
           for k, label, _ in METRICS:
               base = BASELINE[k]
-              entries = [('Baseline', base, '#bab0ac', None)]
+              entries = [('Linux baseline', base, '#bab0ac', None)]
               entries += [(name, num(d, k), color, d) for name, d, color in benches]
               known = [v for _, v, _, _ in entries if v is not None]
               mx = max(known) if known else 1
@@ -334,6 +348,10 @@ jobs:
                       val_txt = '%d ms' % v
                       if d is None:
                           delta = ''
+                      elif d.get('os') != 'ubuntu-latest':
+                          # The baseline was measured on Linux, so a percentage
+                          # delta against it would be meaningless.
+                          delta = '<div class="delta">no Linux baseline for this OS</div>'
                       else:
                           diff = v - base
                           pctd = diff * 100.0 / base
@@ -365,7 +383,7 @@ jobs:
               .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.9rem; margin: 0.6rem 0 1rem; }
               .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
               .bar-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
-              .bar-name { width: 120px; flex: none; text-align: right; font-size: 0.9rem; }
+              .bar-name { width: 200px; flex: none; text-align: right; font-size: 0.9rem; }
               .stack { flex: 1; display: flex; height: 34px; border-radius: 4px; overflow: hidden; background: #eee; min-width: 0; }
               .seg { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.75rem; white-space: nowrap; overflow: hidden; box-sizing: border-box; }
               .seg-empty { width: 100%; background: #ddd; color: #777; }
@@ -389,10 +407,16 @@ jobs:
             <h3>All measurements are in milliseconds (ms)</h3>
 
             <h2>Phase Breakdown (100% of total)</h2>
+            <p class="note">Each bar is normalised to its own run, so this chart
+            is comparable across operating systems.</p>
             <div class="legend">SLEGEND1</div>
             SPHASEBARS
 
             <h2>Results vs Baseline</h2>
+            <p class="note">The baseline was measured on ubuntu-latest, so deltas
+            are only shown for the Linux runs. Absolute times are still listed for
+            every run, and the two operating systems do different amounts of work
+            per file, so cross-OS absolute comparisons are not apples to apples.</p>
             <div class="legend">SLEGEND2</div>
             SCMPBLOCKS
             <p class="note">Baseline: crawl=2058 ms, insertion=975 ms, metadata=10 ms, total=3044 ms</p>
