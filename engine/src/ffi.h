@@ -2,12 +2,25 @@
 #pragma once
 extern "C" {
 
-    void fss_init(const char* root) noexcept;
-    void fss_update(const char* root) noexcept; 
+    typedef struct fss_handle fss_handle;   // opaque
 
-    char* fss_query_for(const char* root, const char* name) noexcept;
-    char* fss_query_like(const char* root, const char* pattern) noexcept;
-    char* fss_query_extension(const char* root, const char* ext) noexcept;
-    char* fetch_index_metadata(const char* root) noexcept;
+    // Open/create the index for `root`, building it if it does not exist.
+    // Does NOT run an update — call fss_handle_update() explicitly.
+    fss_handle* fss_open(const char* root) noexcept;
+
+    // Runs one incremental update for this handle. Idempotent per-search:
+    // the caller decides when staleness is acceptable.
+    void fss_handle_update(fss_handle* h) noexcept;
+
+    char* fss_handle_query_for(fss_handle* h, const char* name) noexcept;
+    char* fss_handle_query_like(fss_handle* h, const char* pattern) noexcept;
+    char* fss_handle_query_extension(fss_handle* h, const char* ext) noexcept;
+
+    // Fetches the index metadata (root, last_update) as "key=value" lines.
+    char* fetch_index_metadata(fss_handle* h) noexcept;
+
+    // Closes the DB connection and frees the handle.
+    void fss_close(fss_handle* h) noexcept;
+
     void fss_free(char* str) noexcept;
 }

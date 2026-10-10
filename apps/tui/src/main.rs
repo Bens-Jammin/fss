@@ -1,9 +1,11 @@
 use std::io;
+use std::path::PathBuf;
 
 mod app;
 mod keys;
 mod ui;
-mod ui_utils;
+
+use fss_sys::Index;
 
 use app::{App, AppSignal, Mode};
 use keys::{handle_browsing_key, handle_editing_key, handle_configuring_key};
@@ -19,7 +21,24 @@ use ratatui::{
     Terminal,
 };
 
+/// Root of the index is taken from `FSS_ROOT`, falling back to the current
+/// directory. The index is opened once here and reused for every keystroke.
+fn resolve_root() -> PathBuf {
+    std::env::var_os("FSS_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
 fn main() -> io::Result<()> {
+    let root = resolve_root();
+    let index = match Index::open(&root) {
+        Ok(index) => index,
+        Err(e) => {
+            eprintln!("cannot open index for {}: {e}", root.display());
+            std::process::exit(1);
+        }
+    };
+
     // --- terminal setup ---
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -27,7 +46,7 @@ fn main() -> io::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let app = App::new();
+    let app = App::new(index);
     let result = run_app(&mut terminal, app);
 
     // --- terminal teardown (always run, even if run_app errored) ---

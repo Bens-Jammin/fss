@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use clap::{Parser, Subcommand};
-use fss_sys::{search_for, init_index, update_index};
+use fss_sys::Index;
 use std::time::Instant;
 
 // To run:
@@ -83,8 +83,20 @@ fn main() {
     let root: PathBuf = resolve_root(cli.root.clone());
 
     match cli.command {
-        Commands::Init { force } => {
-            init_index(&root);
+        Commands::Init { force: _ } => {
+            match Index::open(&root) {
+                Ok(mut index) => {
+                    if let Err(e) = index.update() {
+                        eprintln!("init failed: {e}");
+                        std::process::exit(1);
+                    }
+                    println!("initialized index for {}.", display_path(&root));
+                }
+                Err(e) => {
+                    eprintln!("init failed: {e}");
+                    std::process::exit(1);
+                }
+            }
         }
         Commands::State => {
             println!("{}", root.canonicalize().unwrap().display());
@@ -94,9 +106,17 @@ fn main() {
         Commands::Find { pattern, absolute } => {
             if pattern.trim().is_empty() { println!("Cannot pattern match on an empty pattern."); }
             // TODO: what if this root isnt indexed?
-            
+
+            let index = match Index::open(&root) {
+                Ok(index) => index,
+                Err(e) => {
+                    eprintln!("find failed: {e}");
+                    std::process::exit(1);
+                }
+            };
+
             let start = Instant::now();
-            let results = search_for(root.to_str().unwrap(), &pattern.to_string());
+            let results = index.search_for(&pattern);
             let duration = start.elapsed();
             let result_runtime_s: f64 = (duration.as_millis() as f64) / 1000.0;
 
@@ -115,7 +135,21 @@ fn main() {
             }
             println!("\nFound {} result(s) in {}s.", results.len(), result_runtime_s);
         }
-        Commands::Update     {} => { update_index(&root); },
+        Commands::Update     {} => {
+            match Index::open(&root) {
+                Ok(mut index) => {
+                    if let Err(e) = index.update() {
+                        eprintln!("update failed: {e}");
+                        std::process::exit(1);
+                    }
+                    println!("updated index for {}.", display_path(&root));
+                }
+                Err(e) => {
+                    eprintln!("update failed: {e}");
+                    std::process::exit(1);
+                }
+            }
+        },
         Commands::Connect    {} => {
             if let Err(e) = connect(&root) {
                 eprintln!("connect failed: {e}");

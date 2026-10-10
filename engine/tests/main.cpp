@@ -184,6 +184,39 @@ TEST_CASE("update recovers from a corrupted/non-sqlite file at the db path") {
 }
 
 
+TEST_CASE("ffi handle reuses one index and queries never update it") {
+    fs::path root = fs::temp_directory_path() / "fss_test_ffi_root";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    { std::ofstream out(root / "first.marker"); out << "one\n"; }
+
+    fss_handle* handle = fss_open(root.string().c_str());
+    REQUIRE(handle != nullptr);
+
+    auto query = [&](void) {
+        char* raw = fss_handle_query_extension(handle, ".marker");
+        REQUIRE(raw != nullptr);
+        std::string results(raw);
+        fss_free(raw);
+        return results;
+    };
+
+    // opening a cold index builds it, so the first query already sees the file
+    CHECK(query().find("first.marker") != std::string::npos);
+
+    // a file added after opening is invisible until an explicit update: the
+    // query must neither rebuild nor error on the now-stale index
+    { std::ofstream out(root / "second.marker"); out << "two\n"; }
+    CHECK(query().find("second.marker") == std::string::npos);
+
+    // an explicit update is allowed and does not disturb the handle
+    fss_handle_update(handle);
+    CHECK(query().find("first.marker") != std::string::npos);
+
+    fss_close(handle);
+    fs::remove_all(root);
+}
+
 TEST_CASE("check a metadata table is created when an index is made") {
     fs::path root = fs::temp_directory_path() / "root";
     fs::create_directories(root);

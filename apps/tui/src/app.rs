@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use edtui::{EditorEventHandler, EditorState};
 use ratatui::widgets::ListState;
 
-use fss_sys::{search_for, init};
+use fss_sys::Index;
 
 pub enum Mode {
     Editing,
@@ -28,6 +28,9 @@ pub struct Banner {
 }
 
 pub struct App {
+    /// The index is opened once for the lifetime of the app. Typing only ever
+    /// issues queries against it — never an update, never a rebuild.
+    pub index: Index,
     pub input: String,
     pub list_state: ListState,
     pub results: Vec<PathBuf>,
@@ -39,8 +42,9 @@ pub struct App {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(index: Index) -> Self {
         Self {
+            index,
             input: String::new(),
             results: Vec::new(),
             list_state: ListState::default(),
@@ -54,7 +58,7 @@ impl App {
     }
 
     pub fn submit(&mut self) {
-        self.results = search_for(&self.input);
+        self.results = self.index.search_for(&self.input);
         // self.input.clear();
         self.banner = None;
         if self.results.is_empty() {

@@ -6,16 +6,35 @@
 
 void register_index(string root) {
 
-    // app(end) to the file
-    std::ofstream index_file(INDEX_REGISTER_PATH, std::ios::app);
-
-    if (!index_file.is_open()) {
-        std::cerr << "FATAL: Could not open index register!" << std::endl;
+    // the register's parent data dir may not exist yet
+    std::error_code dirErr;
+    fs::create_directories(INDEX_REGISTER_PATH.parent_path(), dirErr);
+    if (dirErr) {
+        std::cerr << "FATAL: Could not create index register directory: "
+                  << dirErr.message() << std::endl;
+        return;
     }
 
-    fs::path absolute_root = fs::absolute( fs::path(root) );
+    fs::path absolute_root = fs::absolute( fs::path(root) ).lexically_normal();
+    const string entry = absolute_root.string();
 
-    index_file << root << std::endl;
+    // don't append a root that's already registered
+    {
+        std::ifstream existing(INDEX_REGISTER_PATH);
+        string line;
+        while (std::getline(existing, line)) {
+            if (line == entry) return;
+        }
+    }
+
+    // app(end) to the file
+    std::ofstream index_file(INDEX_REGISTER_PATH, std::ios::app);
+    if (!index_file.is_open()) {
+        std::cerr << "FATAL: Could not open index register!" << std::endl;
+        return;
+    }
+
+    index_file << entry << std::endl;
 }
 
 

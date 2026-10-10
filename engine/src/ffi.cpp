@@ -16,23 +16,33 @@ char* to_owned_cstr(const std::string& s) {
 
 } // namespace
 
-
-extern "C" void fss_init(const char* root) noexcept {
-    FSSIndexer indexer(root);
-}
-
-
-extern "C" void fss_update(const char* root) noexcept {
-    FSSIndexer indexer(root);
-    indexer.update();
-}
+struct fss_handle {
+    FSSIndexer index;
+};
 
 
-extern "C" char* fss_query_for(const char* root, const char* name) noexcept {
+extern "C" fss_handle* fss_open(const char* root) noexcept {
     try {
-        FSSIndexer indexer(root);
-        indexer.update();   // TEMP!
-        auto results = indexer.queryExact(name);
+        return new fss_handle { FSSIndexer(root) };
+    } catch (...) { return nullptr; }
+}
+
+
+extern "C" void fss_close(fss_handle* handle) noexcept {
+    delete handle; 
+}
+
+extern "C" void fss_handle_update(fss_handle* handle) noexcept {
+    if (handle == nullptr) return;
+    handle->index.update();   
+}
+
+
+
+extern "C" char* fss_handle_query_for(fss_handle* handle, const char* name) noexcept {
+    if (handle == nullptr) return nullptr;
+    try {
+        auto results = handle->index.queryExact(name);
 
         std::ostringstream oss;
         for (auto& r : results) oss << r << '\n';
@@ -43,11 +53,10 @@ extern "C" char* fss_query_for(const char* root, const char* name) noexcept {
 }
 
 
-extern "C" char* fss_query_like(const char* root, const char* pattern) noexcept {
+extern "C" char* fss_handle_query_like(fss_handle* handle, const char* pattern) noexcept {
+    if (handle == nullptr) return nullptr;
     try {
-        FSSIndexer indexer(root);
-        indexer.update();   // TEMP!
-        auto results = indexer.querySubstr(pattern);
+        auto results = handle->index.querySubstr(pattern);
 
         std::ostringstream oss;
         for (auto& r : results) oss << r << '\n';
@@ -58,11 +67,10 @@ extern "C" char* fss_query_like(const char* root, const char* pattern) noexcept 
 }
 
 
-extern "C" char* fss_query_extension(const char* root, const char* ext) noexcept {
+extern "C" char* fss_handle_query_extension(fss_handle* handle, const char* ext) noexcept {
+    if (handle == nullptr) return nullptr;
     try {
-        FSSIndexer indexer(root);
-        indexer.update();   // TEMP!
-        auto results = indexer.queryExtension(ext);
+        auto results = handle->index.queryExtension(ext);
 
         std::ostringstream oss;
         for (auto& r : results) oss << r << '\n';
@@ -73,10 +81,10 @@ extern "C" char* fss_query_extension(const char* root, const char* ext) noexcept
 }
 
 
-extern "C" char* fetch_index_metadata(const char* root) noexcept {
+extern "C" char* fetch_index_metadata(fss_handle* handle) noexcept {
+    if (handle == nullptr) return nullptr;
     try {
-        FSSIndexer indexer(root);
-        std::unordered_map<std::string, std::string> metadata = indexer.metadata();
+        std::unordered_map<std::string, std::string> metadata = handle->index.metadata();
 
         std::ostringstream oss;
         for (const auto& [key, value] : metadata) {

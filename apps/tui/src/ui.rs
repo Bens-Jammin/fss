@@ -6,7 +6,6 @@ use ratatui::{
     Frame,
 };
 
-use fss_sys::fetch_index_metadata;
 use edtui::{EditorTheme, EditorView, LineNumbers};
 
 use crate::app::{App, BannerType, Mode};
@@ -39,12 +38,7 @@ fn draw_settings(f: &mut Frame, app: &mut App) {
         .borders(Borders::ALL);
 
 
-    let metadata = fetch_index_metadata();
-    let dbg = metadata
-        .iter()
-        .map(|(k, v)| format!("{k}: {v}"))
-        .collect::<Vec<_>>()
-        .join("  |  ");
+    let metadata = app.index.metadata();
 
     let mut settings = vec![];
     for (k, v) in metadata.iter() {
