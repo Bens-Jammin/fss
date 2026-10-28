@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <cctype>
 
 void register_index(string root) {
 
@@ -16,14 +17,25 @@ void register_index(string root) {
     }
 
     fs::path absolute_root = fs::absolute( fs::path(root) ).lexically_normal();
-    const string entry = absolute_root.string();
+    string entry = absolute_root.string();
+    for (char& c : entry) {
+        if ((unsigned char)c < 128 && std::isalpha((unsigned char)c)) {
+            c = std::tolower((unsigned char)c);
+        }
+    }
 
     // don't append a root that's already registered
     {
         std::ifstream existing(INDEX_REGISTER_PATH);
         string line;
         while (std::getline(existing, line)) {
-            if (line == entry) return;
+            std::string lowerLine = line;
+            for (char& c : lowerLine) {
+                if ((unsigned char)c < 128 && std::isalpha((unsigned char)c)) {
+                    c = std::tolower((unsigned char)c);
+                }
+            }
+            if (lowerLine == entry) return;
         }
     }
 

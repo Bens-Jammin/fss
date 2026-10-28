@@ -1,14 +1,17 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "../include/fss/fss.hpp"
-#include "../src/utils.hpp"
-#include "../src/ffi.h"
 #include "../src/db.hpp"
+#include "../src/ffi.h"
+#include "../src/utils.hpp"
+#include "../src/settings.hpp"
 #include <fstream>
 #include <thread>
 #include <chrono>
 #include <filesystem>
 #include <string>
 #include "doctest.h"
+#include <algorithm>
+#include <cctype>
 
 namespace fs = std::filesystem;
 
@@ -236,4 +239,56 @@ TEST_CASE("check a metadata table is created when an index is made") {
 
     auto last_update = queryInt(db, "SELECT last_update FROM index_metadata WHERE id = 1");
     CHECK(last_update > 0);
+
+    sqlite3_close(db);
+    fs::remove_all(root);
+    indexer.done(); 
+}
+
+
+TEST_CASE("same normalized path (lowercase) is not registered more than once") {
+    fs::path root = fs::temp_directory_path() / "fss_test_reg_root";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    { std::ofstream out(root / "file.txt"); out << "hello\n"; }
+
+    // Create indexer twice with different case variations
+    {
+        FSSIndexer indexer1(root.string());
+    }
+    {
+        std::string rootUpper = root.string();
+        for (char& c : rootUpper) {
+            if (std::isalpha((unsigned char)c)) c = std::toupper((unsigned char)c);
+        }
+        FSSIndexer indexer2(rootUpper);
+        indexer2.done();
+    }
+
+    // Count occurrences of the normalized path in the register
+    std::ifstream reg(INDEX_REGISTER_PATH);
+    REQUIRE(reg.is_open());
+    std::string line;
+    int count = 0;
+    fs::path absRoot = fs::absolute(root).lexically_normal();
+    std::string normalized = absRoot.string();
+    for (char& c : normalized) {
+        if ((unsigned char)c < 128 && std::isalpha((unsigned char)c)) c = std::tolower((unsigned char)c);
+    }
+    while (std::getline(reg, line)) {
+        std::string lowerLine = line;
+        // trim whitespace
+        while (!lowerLine.empty() && (lowerLine.back() == '\r' || lowerLine.back() == '\n')) lowerLine.pop_back();
+        for (char& c : lowerLine) {
+            if ((unsigned char)c < 128 && std::isalpha((unsigned char)c)) c = std::tolower((unsigned char)c);
+        }
+        if (lowerLine == normalized) {
+            count++;
+        }
+    }
+    CHECK(count == 1);
+
+    // cleanup
+    try { fs::remove(DBPath(root.string())); } catch (...) {}
+    fs::remove_all(root);
 }

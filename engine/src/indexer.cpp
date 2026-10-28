@@ -86,11 +86,6 @@ FSS_RESULT FSSIndexer::build_index() {
         auto metatime = ms(t2,t3);
         auto totaltime = ms(t0,t3);
 
-        std::cerr << "FSCrawl:                " << fstime     << " ms (" << (fstime     * 100)/totaltime << "%)\n" ;
-        std::cerr << "insertFileEntries:      " << inserttime << " ms (" << (inserttime * 100)/totaltime << "%)\n" ;
-        std::cerr << "update_metadata_table:  " << metatime   << " ms (" << (metatime   * 100)/totaltime << "%)\n" ;
-        std::cerr << "Total:                  " << totaltime  << " ms (" << (totaltime  * 100)/totaltime << "%)\n" ;
-    
     } catch (const FSSException& e) {
         return result(e.status, e.what());
     } catch (const std::exception& e) {
