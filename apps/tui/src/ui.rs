@@ -1,5 +1,5 @@
 use ratatui::{
-    Frame, layout::{Alignment, Constraint, Direction, Layout, Rect}, text::{Line, Span}, widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Widget},
+    Frame, layout::{Alignment, Constraint, Direction, Layout, Rect}, style::{Color, Style}, text::{Line, Span}, widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Widget},
 };
 
 use edtui::{EditorView, LineNumbers};
@@ -168,9 +168,9 @@ fn draw_browsing(f: &mut Frame, app: &mut App) {
         Span::raw(": Settings   "),
         Span::styled("Ctrl+X", theme::control_key()),
         Span::raw(": Quit   "),
-        Span::styled("Up/Down arrow", theme::control_key()),
+        Span::styled("Up/Down arrow", Style::default().fg(Color::Yellow)),
         Span::raw(": Move Cursor    "),
-        Span::styled("Right arrow", theme::control_key()),
+        Span::styled("Right arrow", Style::default().fg(Color::Yellow)),
         Span::raw(": Select   "),
     ]));
     f.render_widget(controls, chunks[2]);
@@ -229,31 +229,28 @@ fn draw_options(f: &mut Frame, app: &mut App) {
             if i == app.options_selected {
                 ListItem::new(Line::from(vec![Span::styled(
                     format!("> {}", s),
-                    theme::option_selected(),
+                    Style::default().fg(Color::Yellow),
                 )]))
             } else {
-                ListItem::new(format!("  {}", s)).style(theme::text())
+                ListItem::new(format!("  {}", s))
             }
         })
         .collect();
 
     let block = Block::default()
         .title("Options")
-        .borders(Borders::ALL)
-        .style(theme::block_style())
-        .border_style(theme::border_style())
-        .title_style(theme::title());
+        .borders(Borders::ALL);
     let list = List::new(items).block(block);
 
     f.render_widget(Clear, popup_area);
     f.render_widget(list, popup_area);
 
     let controls = Paragraph::new(Line::from(vec![
-        Span::styled("▲/▼", theme::control_key()),
+        Span::styled("▲/▼", Style::default().fg(Color::Yellow)),
         Span::raw(": Nav  "),
-        Span::styled("Enter", theme::control_key()),
+        Span::styled("Enter", Style::default().fg(Color::Yellow)),
         Span::raw(": Select  "),
-        Span::styled("Esc", theme::control_key()),
+        Span::styled("Esc", Style::default().fg(Color::Yellow)),
         Span::raw(": Cancel"),
     ]));
     let controls_area = Rect {
