@@ -9,6 +9,14 @@ pub enum Mode {
     Editing,
     Browsing,
     Configuring,
+    Options,
+}
+
+#[derive(Clone, Debug)]
+pub enum OptionAction {
+    CopyAbsolutePath,
+    CopyRelativePath,
+    OpenInDefaultEditor,
 }
 
 pub enum AppSignal {
@@ -39,6 +47,8 @@ pub struct App {
     pub editor_handler: EditorEventHandler,
     pub editing_path: Option<PathBuf>,
     pub banner: Option<Banner>,
+    pub options_path: Option<PathBuf>,
+    pub options_selected: usize,
 }
 
 impl App {
@@ -53,6 +63,8 @@ impl App {
             editor_handler: EditorEventHandler::default(), // vim mode
             editing_path: None,
             banner: None,
+            options_path: None,
+            options_selected: 0,
         }
 
     }

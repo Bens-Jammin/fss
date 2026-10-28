@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Widget},
     Frame,
 };
 
@@ -15,6 +15,11 @@ pub fn ui(f: &mut Frame, app: &mut App) {
         Mode::Configuring => draw_settings(f, app),
         Mode::Editing => draw_editing(f, app),
         Mode::Browsing => draw_browsing(f, app),
+        Mode::Options => {
+            // Keep the search results visible behind the context menu.
+            draw_browsing(f, app);
+            draw_options(f, app);
+        }
     }
 
     draw_banner(f, app);
@@ -158,9 +163,9 @@ fn draw_browsing(f: &mut Frame, app: &mut App) {
         Span::styled("Ctrl+X", Style::default().fg(Color::Yellow)),
         Span::raw(": Quit   "),
         Span::styled("Up/Down arrow", Style::default().fg(Color::Yellow)),
-        Span::raw(": Select   "),
+        Span::raw(": Move Cursor    "),
         Span::styled("Right arrow", Style::default().fg(Color::Yellow)),
-        Span::raw(": Open   "),
+        Span::raw(": Select   "),
     ]));
     f.render_widget(controls, chunks[2]);
 
@@ -169,6 +174,87 @@ fn draw_browsing(f: &mut Frame, app: &mut App) {
         chunks[1].x + app.input.len() as u16 + 1,
         chunks[1].y + 1,
     ));
+}
+
+fn draw_options(f: &mut Frame, app: &mut App) {
+    let area = f.area();
+    let popup_width = if area.width > 60 { 50 } else { area.width.saturating_sub(4) };
+    let popup_height = 6;
+    let controls_height = 1;
+
+    // Mirror the browsing layout so the menu can be anchored to the selected row.
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(0),
+            Constraint::Length(3),
+            Constraint::Length(1),
+        ])
+        .split(area);
+    let list_area = chunks[0];
+
+    let selected = app.list_state.selected().unwrap_or(0);
+    let visible_row = selected.saturating_sub(app.list_state.offset());
+    let anchor_y = list_area.y + 1 + visible_row as u16;
+
+    // Keep the menu fully on screen, like a context menu that flips when it
+    // would otherwise overflow.
+    let total_height = popup_height + controls_height;
+    let max_y = area.height.saturating_sub(total_height);
+    let y = anchor_y.min(max_y);
+    let x = area.width.saturating_sub(popup_width + 2);
+    let popup_area = Rect {
+        x,
+        y,
+        width: popup_width,
+        height: popup_height,
+    };
+
+    let options = vec![
+        "Copy absolute path",
+        "Copy relative path",
+        "Open in default editor",
+    ];
+
+    let items: Vec<ListItem> = options
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            if i == app.options_selected {
+                ListItem::new(Line::from(vec![Span::styled(
+                    format!("> {}", s),
+                    Style::default().fg(Color::Yellow),
+                )]))
+            } else {
+                ListItem::new(format!("  {}", s))
+            }
+        })
+        .collect();
+
+    let block = Block::default()
+        .title("Options")
+        .borders(Borders::ALL);
+    let list = List::new(items).block(block);
+
+    f.render_widget(Clear, popup_area);
+    f.render_widget(list, popup_area);
+
+    let controls = Paragraph::new(Line::from(vec![
+        Span::styled("▲/▼", Style::default().fg(Color::Yellow)),
+        Span::raw(": Nav  "),
+        Span::styled("Enter", Style::default().fg(Color::Yellow)),
+        Span::raw(": Select  "),
+        Span::styled("Esc", Style::default().fg(Color::Yellow)),
+        Span::raw(": Cancel"),
+    ]));
+    let controls_area = Rect {
+        x,
+        y: y + popup_height,
+        width: popup_width,
+        height: controls_height,
+    };
+    f.render_widget(Clear, controls_area);
+    f.render_widget(controls, controls_area);
 }
 
 fn draw_banner(f: &mut Frame, app: &App) {

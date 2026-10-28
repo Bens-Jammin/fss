@@ -8,7 +8,7 @@ mod ui;
 use fss_sys::Index;
 
 use app::{App, AppSignal, Mode};
-use keys::{handle_browsing_key, handle_editing_key, handle_configuring_key};
+use keys::{handle_browsing_key, handle_editing_key, handle_configuring_key, handle_options_key};
 use ui::ui;
 
 use crossterm::{
@@ -76,6 +76,7 @@ where
             match app.mode {
                 Mode::Configuring => handle_configuring_key(key, &mut app)?,
                 Mode::Editing => handle_editing_key(key, &mut app)?,
+                Mode::Options => handle_options_key(key, &mut app)?,
                 Mode::Browsing => {
                     if let AppSignal::Quit = handle_browsing_key(key, &mut app)? {
                         return Ok(());
