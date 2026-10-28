@@ -1,4 +1,5 @@
 use std::io;
+use std::process::Command;
 
 use crossterm::event::{KeyCode, KeyModifiers};
 use edtui::{EditorState, Lines};
@@ -62,32 +63,13 @@ pub(crate) fn handle_browsing_key(
         KeyCode::Right => {
             if let Some(i) = app.list_state.selected() {
                 if let Some(path) = app.results.get(i) {
-                    match std::fs::read_to_string(path) {
-                        Ok(content) => {
-                            app.editor_state = EditorState::new(Lines::from(content));
-                            app.editing_path = Some(path.clone());
-                            app.mode = Mode::Editing;
-                            app.banner = None; // clear any stale banner
-                        }
-                        Err(_e) => {
-                            app.banner = Some(Banner {
-                                message: format!(
-                                    "WARNING: Can't open {}: Check file permissions and type (artifact, directory, executable, etc)",
-                                    path.display(),
-                                ), // use 'e' if want to show err
-                                kind: BannerType::Warning,
-                            });
-                        }
-                    }
+                    app.options_path = Some(path.clone());
+                    app.options_selected = 0;
+                    app.mode = Mode::Options;
+                    app.banner = None;
                 }
             }
         }
-        // KeyCode::Enter => {
-        //     if !app.input.trim().is_empty() {
-        //         app.submit();
-        //         app.list_state.select(Some(0));
-        //     }
-        // }
         KeyCode::Char(c) => {
             app.input.push(c);
             if !app.input.trim().is_empty() {
@@ -106,4 +88,83 @@ pub(crate) fn handle_browsing_key(
         _ => {}
     }
     Ok(AppSignal::Continue)
+}
+
+pub(crate) fn handle_options_key(
+    key: crossterm::event::KeyEvent,
+    app: &mut App,
+) -> io::Result<()> {
+    match key.code {
+        KeyCode::Esc => {
+            app.mode = Mode::Browsing;
+            app.options_path = None;
+        }
+        KeyCode::Up => {
+            if app.options_selected > 0 {
+                app.options_selected -= 1;
+            }
+        }
+        KeyCode::Down => {
+            if app.options_selected < 2 {
+                app.options_selected += 1;
+            }
+        }
+        KeyCode::Enter => {
+            if let Some(path) = app.options_path.clone() {
+                match app.options_selected {
+                    0 => {
+                        // Copy absolute path
+                        let abs = std::fs::canonicalize(&path).unwrap_or(path.clone());
+                        let abs_str = abs.to_string_lossy().to_string();
+                        let _ = Command::new("cmd")
+                            .args(["/C", "echo", &abs_str, "|", "clip"])
+                            .output();
+                        app.banner = Some(Banner {
+                            message: "Copied absolute path".to_string(),
+                            kind: BannerType::Info,
+                        });
+                    }
+                    1 => {
+                        // Copy relative path
+                        let rel_str = path.to_string_lossy().to_string();
+                        let _ = Command::new("cmd")
+                            .args(["/C", "echo", &rel_str, "|", "clip"])
+                            .output();
+                        app.banner = Some(Banner {
+                            message: "Copied relative path".to_string(),
+                            kind: BannerType::Info,
+                        });
+                    }
+                    2 => {
+                        // Open in default editor
+                        match std::fs::read_to_string(&path) {
+                            Ok(content) => {
+                                app.editor_state = EditorState::new(Lines::from(content));
+                                app.editing_path = Some(path.clone());
+                                app.mode = Mode::Editing;
+                                app.banner = None;
+                            }
+                            Err(_e) => {
+                                app.banner = Some(Banner {
+                                    message: format!(
+                                        "WARNING: Can't open {}: Check file permissions and type (artifact, directory, executable, etc)",
+                                        path.display(),
+                                    ),
+                                    kind: BannerType::Warning,
+                                });
+                                app.mode = Mode::Browsing;
+                                app.options_path = None;
+                                return Ok(());
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            app.mode = Mode::Browsing;
+            app.options_path = None;
+        }
+        _ => {}
+    }
+    Ok(())
 }
