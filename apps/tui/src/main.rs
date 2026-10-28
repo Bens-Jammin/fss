@@ -4,6 +4,7 @@ use std::path::PathBuf;
 mod app;
 mod keys;
 mod ui;
+mod theme;
 
 use fss_sys::Index;
 

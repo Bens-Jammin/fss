@@ -1,14 +1,11 @@
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Widget},
-    Frame,
+    Frame, layout::{Alignment, Constraint, Direction, Layout, Rect}, text::{Line, Span}, widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Widget},
 };
 
-use edtui::{EditorTheme, EditorView, LineNumbers};
+use edtui::{EditorView, LineNumbers};
 
-use crate::app::{App, BannerType, Mode};
+use crate::app::{App, Mode};
+use crate::theme;
 
 pub fn ui(f: &mut Frame, app: &mut App) {
     match app.mode {
@@ -40,7 +37,10 @@ fn draw_settings(f: &mut Frame, app: &mut App) {
     // Settings Content with Border
     let settings_block = Block::default()
         .title(" Configuration ") // Optional section title
-        .borders(Borders::ALL);
+        .borders(Borders::ALL)
+        .style(theme::block_style())
+        .border_style(theme::border_style())
+        .title_style(theme::title());
 
 
     let metadata = app.index.metadata();
@@ -58,7 +58,7 @@ fn draw_settings(f: &mut Frame, app: &mut App) {
 
     // Controls
     let controls = Paragraph::new(Line::from(vec![
-        Span::styled("Esc", Style::default().fg(Color::Yellow)),
+        Span::styled("Esc", theme::control_key()),
         Span::raw(": Quit   "),
     ]));
     f.render_widget(controls, chunks[1]);
@@ -89,24 +89,20 @@ fn draw_editing(f: &mut Frame, app: &mut App) {
 
     let title = Paragraph::new(Line::from(vec![Span::styled(
         filename,
-        Style::default().fg(Color::White),
+        theme::filename(),
     )]))
     .alignment(Alignment::Center);
     f.render_widget(title, chunks[0]);
 
     EditorView::new(&mut app.editor_state)
-        .theme(
-            EditorTheme::default()
-                .base(Style::default().bg(Color::Black).fg(Color::White))
-                .selection_style(Style::default().bg(Color::Yellow).fg(Color::Black)),
-        )
+        .theme(theme::editor_theme())
         .line_numbers(LineNumbers::Absolute)
         .render(chunks[1], f.buffer_mut());
 
     let controls = Paragraph::new(Line::from(vec![
-        Span::styled("Esc", Style::default().fg(Color::Yellow)),
+        Span::styled("Esc", theme::control_key()),
         Span::raw(": Back to browsing   "),
-        Span::styled("Ctrl+S", Style::default().fg(Color::Yellow)),
+        Span::styled("Ctrl+S", theme::control_key()),
         Span::raw(": Save   "),
     ]));
     f.render_widget(controls, chunks[2]);
@@ -126,45 +122,55 @@ fn draw_browsing(f: &mut Frame, app: &mut App) {
 
     // --- top area: show values derived from the last submitted line ---
     let items: Vec<ListItem> = if app.results.is_empty() {
-        vec![ListItem::new(format!("No Results for '{}'.", &app.input))]
+        vec![ListItem::new(format!("No Results for '{}'.", &app.input)).style(theme::muted())]
     } else {
         app.results
             .iter()
-            .map(|path| ListItem::new(path.display().to_string()))
+            .map(|path| ListItem::new(path.display().to_string()).style(theme::text()))
             .collect()
     };
 
     let list = List::new(items).block(
         Block::default()
             .title("Search Results")
-            .borders(Borders::ALL),
+            .borders(Borders::ALL)
+            .style(theme::block_style())
+            .border_style(theme::border_style())
+            .title_style(theme::title()),
     );
 
     if app.results.is_empty() {
         f.render_widget(list, chunks[0]);
     } else {
         let list = list
-            .highlight_style(Style::default().bg(Color::Blue).fg(Color::DarkGray))
+            .highlight_style(theme::selected())
             .highlight_symbol("> ");
         f.render_stateful_widget(list, chunks[0], &mut app.list_state);
     }
 
     // --- bottom area: the input box ---
     let input = Paragraph::new(app.input.as_str())
-        .style(Style::default().fg(Color::Cyan))
-        .block(Block::default().title("Input").borders(Borders::ALL));
+        .style(theme::input())
+        .block(
+            Block::default()
+                .title("Input")
+                .borders(Borders::ALL)
+                .style(theme::block_style())
+                .border_style(theme::border_style())
+                .title_style(theme::title()),
+        );
     f.render_widget(input, chunks[1]);
 
     let controls = Paragraph::new(Line::from(vec![
-        Span::styled("Enter", Style::default().fg(Color::Yellow)),
+        Span::styled("Enter", theme::control_key()),
         Span::raw(": Search   "),
-        Span::styled("Ctrl+Q", Style::default().fg(Color::Yellow)),
+        Span::styled("Ctrl+Q", theme::control_key()),
         Span::raw(": Settings   "),
-        Span::styled("Ctrl+X", Style::default().fg(Color::Yellow)),
+        Span::styled("Ctrl+X", theme::control_key()),
         Span::raw(": Quit   "),
-        Span::styled("Up/Down arrow", Style::default().fg(Color::Yellow)),
+        Span::styled("Up/Down arrow", theme::control_key()),
         Span::raw(": Move Cursor    "),
-        Span::styled("Right arrow", Style::default().fg(Color::Yellow)),
+        Span::styled("Right arrow", theme::control_key()),
         Span::raw(": Select   "),
     ]));
     f.render_widget(controls, chunks[2]);
@@ -223,28 +229,31 @@ fn draw_options(f: &mut Frame, app: &mut App) {
             if i == app.options_selected {
                 ListItem::new(Line::from(vec![Span::styled(
                     format!("> {}", s),
-                    Style::default().fg(Color::Yellow),
+                    theme::option_selected(),
                 )]))
             } else {
-                ListItem::new(format!("  {}", s))
+                ListItem::new(format!("  {}", s)).style(theme::text())
             }
         })
         .collect();
 
     let block = Block::default()
         .title("Options")
-        .borders(Borders::ALL);
+        .borders(Borders::ALL)
+        .style(theme::block_style())
+        .border_style(theme::border_style())
+        .title_style(theme::title());
     let list = List::new(items).block(block);
 
     f.render_widget(Clear, popup_area);
     f.render_widget(list, popup_area);
 
     let controls = Paragraph::new(Line::from(vec![
-        Span::styled("▲/▼", Style::default().fg(Color::Yellow)),
+        Span::styled("▲/▼", theme::control_key()),
         Span::raw(": Nav  "),
-        Span::styled("Enter", Style::default().fg(Color::Yellow)),
+        Span::styled("Enter", theme::control_key()),
         Span::raw(": Select  "),
-        Span::styled("Esc", Style::default().fg(Color::Yellow)),
+        Span::styled("Esc", theme::control_key()),
         Span::raw(": Cancel"),
     ]));
     let controls_area = Rect {
@@ -259,12 +268,6 @@ fn draw_options(f: &mut Frame, app: &mut App) {
 
 fn draw_banner(f: &mut Frame, app: &App) {
     if let Some(banner) = &app.banner {
-        let color = match banner.kind {
-            BannerType::Failure => Color::Red,
-            BannerType::Warning => Color::Yellow,
-            BannerType::Info => Color::Blue,
-        };
-
         let banner_area = Rect {
             x: f.area().x,
             y: f.area().y,
@@ -273,7 +276,7 @@ fn draw_banner(f: &mut Frame, app: &App) {
         };
 
         let banner_widget = Paragraph::new(banner.message.as_str())
-            .style(Style::default().fg(Color::Black).bg(color))
+            .style(theme::banner(&banner.kind))
             .alignment(Alignment::Left);
         f.render_widget(banner_widget, banner_area);
     }
