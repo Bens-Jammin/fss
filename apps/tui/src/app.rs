@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 use edtui::{EditorEventHandler, EditorState};
 use ratatui::widgets::ListState;
@@ -37,8 +37,9 @@ pub struct Banner {
 
 pub struct App {
     /// The index is opened once for the lifetime of the app. Typing only ever
-    /// issues queries against it — never an update, never a rebuild.
+    /// issues queries against it �?" never an update, never a rebuild.
     pub index: Index,
+    pub root: PathBuf,
     pub input: String,
     pub list_state: ListState,
     pub results: Vec<PathBuf>,
@@ -52,9 +53,10 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(index: Index) -> Self {
+    pub fn new(index: Index, root: PathBuf) -> Self {
         Self {
             index,
+            root,
             input: String::new(),
             results: Vec::new(),
             list_state: ListState::default(),
@@ -78,5 +80,22 @@ impl App {
         } else {
             self.list_state.select(Some(0));
         }
+    }
+
+    /// Returns the index root as an absolute path suitable for display.
+    ///
+    /// Canonicalizing resolves `.`, `..`, and symlinks, but it fails if the
+    /// path no longer exists, so fall back to the root exactly as given.
+    pub fn idx_abs_path(&self) -> String {
+        let path = fs::canonicalize(&self.root).unwrap_or_else(|_| self.root.clone());
+
+        // Lossy conversion avoids panicking if the path is not valid UTF-8.
+        let display = path.to_string_lossy();
+
+        // On Windows, canonical paths start with `\\?\`; hide that from users.
+        display
+            .strip_prefix(r"\\?\")
+            .unwrap_or(&display)
+            .to_string()
     }
 }

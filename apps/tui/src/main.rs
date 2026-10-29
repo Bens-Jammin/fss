@@ -47,7 +47,7 @@ fn main() -> io::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let app = App::new(index);
+    let app = App::new(index, root);
     let result = run_app(&mut terminal, app);
 
     // --- terminal teardown (always run, even if run_app errored) ---

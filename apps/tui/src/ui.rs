@@ -121,7 +121,9 @@ fn draw_browsing(f: &mut Frame, app: &mut App) {
         .split(f.area());
 
     // --- top area: show values derived from the last submitted line ---
-    let items: Vec<ListItem> = if app.results.is_empty() {
+    let items: Vec<ListItem> = if app.input.is_empty()  {
+                vec![ListItem::new(format!("Search results will show up here.")).style(theme::muted())]
+    } else if app.results.is_empty() {
         vec![ListItem::new(format!("No Results for '{}'.", &app.input)).style(theme::muted())]
     } else {
         app.results
@@ -133,6 +135,13 @@ fn draw_browsing(f: &mut Frame, app: &mut App) {
     let list = List::new(items).block(
         Block::default()
             .title("Search Results")
+            .title_top(
+                Line::from(Span::styled(
+                    format!("root: {}", app.idx_abs_path()),
+                    theme::muted(),
+                ))
+                .alignment(Alignment::Right),
+            )
             .borders(Borders::ALL)
             .style(theme::block_style())
             .border_style(theme::border_style())
